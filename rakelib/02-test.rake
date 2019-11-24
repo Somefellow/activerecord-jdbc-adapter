@@ -76,8 +76,6 @@ end
   test_task_for adapter, :desc => "Run tests against #{adapter} (ensure driver is on class-path)"
 end
 
-#test_task_for :MSSQL, :name => 'test_sqlserver', :driver => nil, :database_name => 'MS-SQL using SQLJDBC'
-
 test_task_for :AS400, :desc => "Run tests against AS400 (DB2) (ensure driver is on class-path)",
               :files => FileList["test/db2*_test.rb"] + FileList["test/db/db2/*_test.rb"]
 

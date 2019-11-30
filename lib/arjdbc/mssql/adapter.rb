@@ -269,20 +269,20 @@ module ActiveRecord
 
       private
 
-      def translate_exception(exception, message)
+      def translate_exception(exception, message:, sql:, binds:)
         case message
         when /(cannot insert duplicate key .* with unique index) | (violation of unique key constraint)/i
-          RecordNotUnique.new(message)
+          RecordNotUnique.new(message, sql: sql, binds: binds)
         when /Lock request time out period exceeded/i
-          LockTimeout.new(message)
+          LockTimeout.new(message, sql: sql, binds: binds)
         when /The .* statement conflicted with the FOREIGN KEY constraint/
-          ActiveRecord::InvalidForeignKey.new(message)
+          InvalidForeignKey.new(message, sql: sql, binds: binds)
         when /(String or binary data would be truncated)/i
-          ActiveRecord::ValueTooLong.new(message)
+          ValueTooLong.new(message, sql: sql, binds: binds)
         when /Cannot insert the value NULL into column .* does not allow nulls/
-          ActiveRecord::NotNullViolation.new(message)
+          NotNullViolation.new(message, sql: sql, binds: binds)
         when /Arithmetic overflow error converting expression/
-          ActiveRecord::RangeError.new(message)
+          RangeError.new(message, sql: sql, binds: binds)
         else
           super
         end

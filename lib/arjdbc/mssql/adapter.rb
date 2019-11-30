@@ -172,7 +172,7 @@ module ActiveRecord
       end
 
       def create_table_definition(*args) # :nodoc:
-        MSSQL::TableDefinition.new(*args)
+        MSSQL::TableDefinition.new(self, *args)
       end
 
       def update_table_definition(table_name, base) #:nodoc:

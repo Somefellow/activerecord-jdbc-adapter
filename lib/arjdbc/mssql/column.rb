@@ -5,7 +5,7 @@ module ActiveRecord
       def initialize(name, raw_default, sql_type_metadata = nil, null = true, table_name = nil, default_function = nil, collation = nil, comment: nil)
         default = extract_default(raw_default)
 
-        super(name, default, sql_type_metadata, null, table_name, default_function, collation, comment: comment)
+        super(name, default, sql_type_metadata, null, default_function, collation: collation, comment: comment)
       end
 
       def extract_default(value)

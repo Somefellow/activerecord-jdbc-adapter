@@ -11,6 +11,13 @@ module Arel
       FETCH0 = " FETCH FIRST (SELECT 0) "
       ROWS_ONLY = " ROWS ONLY"
 
+      # NOTE: redefine removed constants from arel in the rails repository
+      # by  pull request #35664 from jeremyevans/remove-roflscaling
+      # later we may remove all these constants
+
+      SPACE = " "
+      ORDER_BY = " ORDER BY "
+      COMMA = ", "
 
       private
 

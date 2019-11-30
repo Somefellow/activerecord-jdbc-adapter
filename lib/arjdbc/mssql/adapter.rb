@@ -201,15 +201,25 @@ module ActiveRecord
 
       alias_method :current_schema=, :default_schema=
 
-      # Overrides method in abstract adapter
-      # FIXME: This needs to be fixed the we find a way how to
-      # get the collation per column basis. At the moment we only use
-      # the global database collation
-      def case_sensitive_comparison(table, attribute, column, value)
-        if [:string, :text].include?(column.type) && collation && !collation.match(/_CS/)
-          table[attribute].eq(Arel::Nodes::Bin.new(value))
-        # elsif value.acts_like?(:string)
-        #   table[attribute].eq(Arel::Nodes::Bin.new(Arel::Nodes::BindParam.new))
+      # FIXME: This needs to be fixed when we implement the collation per
+      # column basis. At the moment we only use the global database collation
+      def default_uniqueness_comparison(attribute, value, klass) # :nodoc:
+        column = column_for_attribute(attribute)
+
+        if [:string, :text].include?(column.type) && collation && !collation.match(/_CS/) && !value.nil?
+          # NOTE: there is a deprecation warning here in the mysql adapter
+          # no sure if it's required.
+          attribute.eq(Arel::Nodes::Bin.new(value))
+        else
+          super
+        end
+      end
+
+      def case_sensitive_comparison(attribute, value)
+        column = column_for_attribute(attribute)
+
+        if [:string, :text].include?(column.type) && collation && !collation.match(/_CS/) && !value.nil?
+          attribute.eq(Arel::Nodes::Bin.new(value))
         else
           super
         end

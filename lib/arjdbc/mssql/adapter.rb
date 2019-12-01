@@ -67,10 +67,6 @@ module ActiveRecord
       def initialize(connection, logger, _connection_parameters, config = {})
         # configure_connection happens in super
         super(connection, logger, config)
-
-        unless mssql_major_version >= 11
-          raise "Your MSSQL #{mssql_version_year} is too old. This adapter supports MSSQL >= 2012."
-        end
       end
 
       # Returns the (JDBC) connection class to be used for this adapter.
@@ -249,6 +245,28 @@ module ActiveRecord
 
       def mssql_version_year
         MSSQL_VERSION_YEAR[mssql_major_version.to_i]
+      end
+
+      def mssql_product_version
+        return @mssql_product_version if defined? @mssql_product_version
+
+        @mssql_product_version = @connection.database_product_version
+      end
+
+      def mssql_product_name
+        return @mssql_product_name if defined? @mssql_product_name
+
+        @mssql_product_name = @connection.database_product_name
+      end
+
+      def get_database_version # :nodoc:
+        MSSQLAdapter::Version.new(mssql_product_version)
+      end
+
+      def check_version # :nodoc:
+        if database_version < '11'
+          raise "Your #{mssql_product_name} #{mssql_version_year} is too old. This adapter supports #{mssql_product_name} >= 2012."
+        end
       end
 
       def tables_with_referential_integrity

@@ -598,6 +598,42 @@ public class MSSQLRubyJdbcConnection extends RubyJdbcConnection {
       });
     }
 
+    // Get MSSQL minor version eg. 0
+    @JRubyMethod
+    public IRubyObject database_minor_version(final ThreadContext context) throws SQLException {
+      return withConnection(context, new Callable<IRubyObject>() {
+        public IRubyObject call(final Connection connection) throws SQLException {
+          final DatabaseMetaData metaData = connection.getMetaData();
+
+          return context.runtime.newFixnum( metaData.getDatabaseMinorVersion() );
+        }
+      });
+    }
+
+    // Get MSSQL product name eg. Microsoft SQL Server
+    @JRubyMethod
+    public IRubyObject database_product_name(final ThreadContext context) throws SQLException {
+      return withConnection(context, new Callable<IRubyObject>() {
+        public IRubyObject call(final Connection connection) throws SQLException {
+          final DatabaseMetaData metaData = connection.getMetaData();
+
+          return context.runtime.newString( metaData.getDatabaseProductName() );
+        }
+      });
+    }
+
+    // Get MSSQL product version eg. '14.00.3238'
+    @JRubyMethod
+    public IRubyObject database_product_version(final ThreadContext context) throws SQLException {
+      return withConnection(context, new Callable<IRubyObject>() {
+        public IRubyObject call(final Connection connection) throws SQLException {
+          final DatabaseMetaData metaData = connection.getMetaData();
+
+          return context.runtime.newString( metaData.getDatabaseProductVersion() );
+        }
+      });
+    }
+
     /**
      * Microsoft SQL 2000+ support schemas
      */

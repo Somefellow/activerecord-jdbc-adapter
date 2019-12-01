@@ -124,7 +124,7 @@ module ActiveRecord
             end
           end
 
-          if options[:if_exists] && @mssql_major_version < 13
+          if options[:if_exists] && mssql_major_version < 13
             # this is for sql server 2012 and 2014
             execute "IF EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = #{quote(table_name)}) DROP TABLE #{quote_table_name(table_name)}"
           else

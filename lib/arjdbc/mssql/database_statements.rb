@@ -23,6 +23,15 @@ module ActiveRecord
         end
         alias_method :execute_procedure, :exec_proc # AR-SQLServer-Adapter naming
 
+        READ_QUERY = ActiveRecord::ConnectionAdapters::AbstractAdapter.build_read_query_regexp(
+          :begin, :commit, :explain, :select, :set, :show, :release, :savepoint, :rollback, :with
+        ) # :nodoc:
+        private_constant :READ_QUERY
+
+        def write_query?(sql) # :nodoc:
+          !READ_QUERY.match?(sql)
+        end
+
         def execute(sql, name = nil)
           # with identity insert on block
           if insert_sql?(sql)

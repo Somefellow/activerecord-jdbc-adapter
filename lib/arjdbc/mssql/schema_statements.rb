@@ -193,7 +193,7 @@ module ActiveRecord
               column_type_sql << "(#{precision})"
             else
               raise(
-                ActiveRecordError,
+                ArgumentError,
                 "No #{native[:name]} type has precision of #{precision}. The " \
                 'allowed range of precision is from 0 to 7, even though the ' \
                 'sql type precision is 7 this adapter will persist up to 6 ' \
@@ -299,7 +299,19 @@ module ActiveRecord
           execute(sql_alter.join(' '))
         end
 
+        def update_table_definition(table_name, base) #:nodoc:
+          MSSQL::Table.new(table_name, base)
+        end
+
         private
+
+        def schema_creation
+          MSSQL::SchemaCreation.new(self)
+        end
+
+        def create_table_definition(*args)
+          MSSQL::TableDefinition.new(self, *args)
+        end
 
         def data_source_sql(name = nil, type: nil)
           scope = quoted_scope(name, type: type)

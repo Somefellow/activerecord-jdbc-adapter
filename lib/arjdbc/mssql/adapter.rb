@@ -159,22 +159,6 @@ module ActiveRecord
         result
       end
 
-      def arel_visitor # :nodoc:
-        ::Arel::Visitors::SQLServer.new(self)
-      end
-
-      def schema_creation # :nodoc:
-        MSSQL::SchemaCreation.new(self)
-      end
-
-      def create_table_definition(*args) # :nodoc:
-        MSSQL::TableDefinition.new(self, *args)
-      end
-
-      def update_table_definition(table_name, base) #:nodoc:
-        MSSQL::Table.new(table_name, base)
-      end
-
       # Returns the name of the current security context
       def current_user
         @current_user ||= select_value('SELECT CURRENT_USER')
@@ -407,6 +391,10 @@ module ActiveRecord
         map.register_type 'text',  MSSQL::Type::Text.new
         map.register_type 'ntext', MSSQL::Type::Ntext.new
         map.register_type 'image', MSSQL::Type::Image.new
+      end
+
+      def arel_visitor # :nodoc:
+        ::Arel::Visitors::SQLServer.new(self)
       end
     end
   end

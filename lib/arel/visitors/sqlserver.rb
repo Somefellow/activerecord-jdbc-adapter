@@ -132,6 +132,21 @@ module Arel
         visit o.right, collector
       end
 
+      # NOTE: this overrides the original method in arel visitors 'to_sql.rb'
+      # fixes The ORDER BY clause is invalid in subqueries
+      # FIXME: we should probably have a 2-pass visitor for this
+      def build_subselect(key, o)
+        stmt             = Nodes::SelectStatement.new
+        core             = stmt.cores.first
+        core.froms       = o.relation
+        core.wheres      = o.wheres
+        core.projections = [key]
+        stmt.limit       = o.limit
+        stmt.offset      = o.offset
+        stmt.orders      = []
+        stmt
+      end
+
       # SQLServer ToSql/Visitor (Additions)
 
       def visit_Arel_Nodes_SelectStatement_SQLServer_Lock collector, options = {}

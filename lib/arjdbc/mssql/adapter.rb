@@ -287,6 +287,8 @@ module ActiveRecord
           LockTimeout.new(message, sql: sql, binds: binds)
         when /The .* statement conflicted with the FOREIGN KEY constraint/
           InvalidForeignKey.new(message, sql: sql, binds: binds)
+        when /The .* statement conflicted with the REFERENCE constraint/
+          InvalidForeignKey.new(message, sql: sql, binds: binds)
         when /(String or binary data would be truncated)/i
           ValueTooLong.new(message, sql: sql, binds: binds)
         when /Cannot insert the value NULL into column .* does not allow nulls/

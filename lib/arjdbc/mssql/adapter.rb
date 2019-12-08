@@ -97,6 +97,14 @@ module ActiveRecord
         true
       end
 
+      def supports_savepoints?
+        true
+      end
+
+      def supports_lazy_transactions?
+        true
+      end
+
       # The MSSQL datetime type doe have precision.
       def supports_datetime_with_precision?
         true

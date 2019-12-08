@@ -61,11 +61,6 @@ module ActiveRecord
           end
         end
 
-        # Implements the truncate method.
-        def truncate(table_name, name = nil)
-          execute "TRUNCATE TABLE #{quote_table_name(table_name)}", name
-        end
-
         # Not a rails method, own method to test different isolation
         # levels supported by the mssql adapter.
         def supports_transaction_isolation_level?(level)
@@ -104,7 +99,37 @@ module ActiveRecord
           end
         end
 
+        # Implements the truncate method.
+        def truncate(table_name, name = nil)
+          execute "TRUNCATE TABLE #{quote_table_name(table_name)}", name
+        end
+
+        def truncate_tables(*table_names) # :nodoc:
+          return if table_names.empty?
+
+          disable_referential_integrity do
+            table_names.each do |table_name|
+              mssql_truncate(table_name)
+            end
+          end
+        end
+
         private
+
+        # It seems the truncate_tables is mostly used for testing
+        # this a workaround to the fact that SQL Server truncate tables
+        # referenced by a foreign key, it may not be required to reset
+        # the identity column too, more at:
+        #    https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-ver15
+        def mssql_truncate(table_name)
+          execute "TRUNCATE TABLE #{quote_table_name(table_name)}", 'Truncate Tables'
+        rescue => e
+          if e.message =~ /Cannot truncate table .* because it is being referenced by a FOREIGN KEY constraint/
+          execute "DELETE FROM #{quote_table_name(table_name)}", 'Truncate Tables with Delete'
+          else
+            raise
+          end
+        end
 
         # Overrides method in abstract class, combining the sqls with semicolon
         # affects disable_referential_integrity in mssql specially when multiple

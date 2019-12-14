@@ -1,7 +1,7 @@
 module ActiveRecord
   module ConnectionAdapters
     module MSSQL
-      module SchemaStatements
+      module SchemaStatements # :nodoc:
 
         NATIVE_DATABASE_TYPES = {
           # Logical Rails types to SQL Server types
@@ -56,8 +56,35 @@ module ActiveRecord
         end
 
         # Returns an array of indexes for the given table.
-        def indexes(table_name, name = nil)
-          @connection.indexes(table_name, name)
+        def indexes(table_name)
+          data = select("EXEC sp_helpindex #{quote(table_name)}", "SCHEMA") rescue []
+
+          data.reduce([]) do |indexes, index|
+            index = index.with_indifferent_access
+
+            if index[:index_description] =~ /primary key/
+              indexes
+            else
+              name    = index[:index_name]
+              unique  = index[:index_description].to_s.match?(/unique/)
+              where   = select_value("SELECT [filter_definition] FROM sys.indexes WHERE name = #{quote(name)}")
+              orders  = {}
+              columns = []
+
+              index[:index_keys].split(',').each do |column|
+                column.strip!
+
+                if column.ends_with?('(-)')
+                  column.gsub! '(-)', ''
+                  orders[column] = :desc
+                end
+
+                columns << column
+              end
+
+              indexes << IndexDefinition.new(table_name, name, unique, columns, where: where, orders: orders)
+            end
+          end
         end
 
         def primary_keys(table_name)

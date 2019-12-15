@@ -69,6 +69,17 @@ module ActiveRecord
         super(connection, logger, config)
       end
 
+      def self.database_exists?(config)
+        !!ActiveRecord::Base.sqlserver_connection(config)
+      rescue ActiveRecord::JDBCError => e
+        case e.message
+        when /Cannot open database .* requested by the login/
+          false
+        else
+          raise
+        end
+      end
+
       # Returns the (JDBC) connection class to be used for this adapter.
       # The class is defined in the java part
       def jdbc_connection_class(_spec)

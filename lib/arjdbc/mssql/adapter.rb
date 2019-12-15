@@ -130,7 +130,6 @@ module ActiveRecord
         !native_database_types[type].nil?
       end
 
-      # FIXME: to be reviewed.
       def clear_cache!
         reload_type_map
         super
@@ -401,6 +400,20 @@ module ActiveRecord
         map.register_type 'text',  MSSQL::Type::Text.new
         map.register_type 'ntext', MSSQL::Type::Ntext.new
         map.register_type 'image', MSSQL::Type::Image.new
+      end
+
+      # Returns an array of Column objects for the table specified by +table_name+.
+      # See the concrete implementation for details on the expected parameter values.
+      # NOTE: This is ready, all implemented in the java part of adapter,
+      # it uses MSSQLColumn, SqlTypeMetadata, etc.
+      def column_definitions(table_name)
+       log('JDBC: GETCOLUMNS', 'SCHEMA') { @connection.columns(table_name) }
+      rescue => e
+        # raise translate_exception_class(e, nil)
+        # FIXME: this breaks one arjdbc test but fixes activerecord tests
+        # (table name alias). Also it behaves similarly to the CRuby adapter
+        # which returns an empty array too. (postgres throws a exception)
+        []
       end
 
       def arel_visitor # :nodoc:

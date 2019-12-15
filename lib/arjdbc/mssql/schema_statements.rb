@@ -41,20 +41,6 @@ module ActiveRecord
           NATIVE_DATABASE_TYPES
         end
 
-        # Returns an array of Column objects for the table specified by +table_name+.
-        # See the concrete implementation for details on the expected parameter values.
-        # NOTE: This is ready, all implemented in the java part of adapter,
-        # it uses MSSQLColumn, SqlTypeMetadata, etc.
-        def columns(table_name)
-          @connection.columns(table_name)
-        rescue => e
-          # raise translate_exception_class(e, nil)
-          # FIXME: this breaks one arjdbc test but fixes activerecord tests
-          # (table name alias). Also it behaves similarly to the CRuby adapter
-          # which returns an empty array too. (postgres throws a exception)
-          []
-        end
-
         # Returns an array of indexes for the given table.
         def indexes(table_name)
           data = select("EXEC sp_helpindex #{quote(table_name)}", "SCHEMA") rescue []
@@ -338,6 +324,10 @@ module ActiveRecord
 
         def create_table_definition(*args)
           MSSQL::TableDefinition.new(self, *args)
+        end
+
+        def new_column_from_field(table_name, field)
+          field
         end
 
         def data_source_sql(name = nil, type: nil)

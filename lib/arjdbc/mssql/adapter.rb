@@ -136,6 +136,18 @@ module ActiveRecord
         true
       end
 
+      def supports_insert_on_conflict?
+        false
+      end
+      alias supports_insert_on_duplicate_skip? supports_insert_on_conflict?
+      alias supports_insert_on_duplicate_update? supports_insert_on_conflict?
+      alias supports_insert_conflict_target? supports_insert_on_conflict?
+
+      def build_insert_sql(insert) # :nodoc:
+        # TODO: hope we can implement an upsert like feature
+        "INSERT #{insert.into} #{insert.values_list}"
+      end
+
       # Overrides abstract method which always returns false
       def valid_type?(type)
         !native_database_types[type].nil?

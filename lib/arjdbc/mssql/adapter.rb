@@ -146,6 +146,11 @@ module ActiveRecord
         super
       end
 
+      def reset!
+        execute 'IF @@TRANCOUNT > 0 ROLLBACK TRANSACTION'
+        @connection.reconnect!
+      end
+
       def disable_referential_integrity
         tables = tables_with_referential_integrity
 

@@ -447,6 +447,10 @@ module ActiveRecord
       def arel_visitor # :nodoc:
         ::Arel::Visitors::SQLServer.new(self)
       end
+
+      def build_statement_pool
+        # NOTE: @statements is set in StatementCache module
+      end
     end
   end
 end

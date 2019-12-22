@@ -21,7 +21,7 @@ module MSSQLMigration
       remove_belongs_to
     ].freeze
 
-    class CreateColumnModifications< ActiveRecord::Migration[5.1]
+    class CreateColumnModifications< ActiveRecord::Migration[6.0]
       def self.up
         create_table :entries do |t|
 

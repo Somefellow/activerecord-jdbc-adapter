@@ -2,7 +2,7 @@ require 'test_helper'
 require 'db/mssql'
 
 class MSSQLColumnDateAndTimeTypesTest < Test::Unit::TestCase
-  class CreateDateAndTimeTypes < ActiveRecord::Migration[5.1]
+  class CreateDateAndTimeTypes < ActiveRecord::Migration[6.0]
     def self.up
       create_table 'date_and_time_types', force: true do |t|
         t.column :my_date, :date

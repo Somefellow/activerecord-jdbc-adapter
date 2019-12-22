@@ -33,7 +33,7 @@ class MSSQLExtensionsTest < Test::Unit::TestCase
   def test_attributes_for_update_override_create_with_after_create_callback
     other_account = Class.new(Account) do
       after_create do
-        update_attributes!(username: "#{first_name}#{last_name[0]}")
+        update!(username: "#{first_name}#{last_name[0]}")
       end
     end
 
@@ -45,7 +45,7 @@ class MSSQLExtensionsTest < Test::Unit::TestCase
   def test_attributes_for_update_override_save_with_after_create_callback
     other_account = Class.new(Account) do
       after_create do
-        update_attributes!(username: "#{first_name}#{last_name[0]}")
+        update!(username: "#{first_name}#{last_name[0]}")
       end
     end
     marie = other_account.new(first_name: 'Marie')

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 ArJdbc::ConnectionMethods.module_eval do
 
   # Default connection method for MS-SQL adapter (`adapter: mssql`),

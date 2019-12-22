@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # MSSQL deprecated type definitions
 module ActiveRecord
   module ConnectionAdapters

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # This file contains extensions, overrides, and monkey patches to core parts
 # of active record to allow SQL Server work properly.
 #

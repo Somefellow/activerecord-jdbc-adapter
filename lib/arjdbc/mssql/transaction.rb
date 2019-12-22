@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'active_record/connection_adapters/abstract/transaction'
 
 # MSSQL doe not restore the initial transaction isolation when the transaction

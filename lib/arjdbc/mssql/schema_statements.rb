@@ -336,7 +336,8 @@ module ActiveRecord
           scope = quoted_scope(name, type: type)
           table_name = 'TABLE_NAME'
 
-          sql = "SELECT #{table_name}"
+          sql = ''.dup
+          sql << "SELECT #{table_name}"
           sql << ' FROM INFORMATION_SCHEMA.TABLES'
           sql << ' WHERE TABLE_CATALOG = DB_NAME()'
           sql << " AND TABLE_SCHEMA = #{quote(scope[:schema])}"
@@ -358,7 +359,9 @@ module ActiveRecord
         end
 
         def change_column_type(table_name, column_name, type, options = {})
-          sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} #{type_to_sql(type, limit: options[:limit], precision: options[:precision], scale: options[:scale])}"
+          sql = ''.dup
+
+          sql << "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} #{type_to_sql(type, limit: options[:limit], precision: options[:precision], scale: options[:scale])}"
           sql << (options[:null] ? " NULL" : " NOT NULL") if options.has_key?(:null)
           result = execute(sql)
           result

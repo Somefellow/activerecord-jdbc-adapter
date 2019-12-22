@@ -7,6 +7,7 @@ module MSSQLMigration
       change_column_default
       change_column_null
       add_column
+      add_timestamps
       remove_column
       rename_column
       add_index
@@ -30,8 +31,6 @@ module MSSQLMigration
 
         create_table :reviews do |t|
           t.references :entry
-
-          t.timestamps
         end
       end
 
@@ -42,6 +41,9 @@ module MSSQLMigration
     end
 
     class Entry < ActiveRecord::Base
+    end
+
+    class Review < ActiveRecord::Base
     end
 
     def setup

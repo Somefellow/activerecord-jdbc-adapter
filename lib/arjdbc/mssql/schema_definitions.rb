@@ -83,6 +83,14 @@ module ActiveRecord
 
           super
         end
+
+        def timestamps(**options)
+          if !options.key?(:precision) && @conn.supports_datetime_with_precision?
+            options[:precision] = 7
+          end
+
+          super
+        end
       end
 
       class Table < ActiveRecord::ConnectionAdapters::Table

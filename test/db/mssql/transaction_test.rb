@@ -75,7 +75,16 @@ class MSSQLTransactionTest < Test::Unit::TestCase
   end
 
   def test_transaction_isolation_read_uncommitted
-    super
+    # NOTE: copied from super (TransactionTestMethods) to make it run here
+    # It is impossible to properly test read uncommitted. The SQL standard only
+    # specifies what must not happen at a certain level, not what must happen. At
+    # the read uncommitted level, there is nothing that must not happen.
+    # test "read uncommitted" do
+    Entry.transaction(:isolation => :read_uncommitted) do
+      assert_equal 0, Entry.count
+      Entry2.create
+      assert_equal 1, Entry.count
+    end
   end
 
   def test_transaction_isolation_read_committed

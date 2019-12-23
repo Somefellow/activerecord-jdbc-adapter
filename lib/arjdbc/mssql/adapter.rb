@@ -67,6 +67,10 @@ module ActiveRecord
       def initialize(connection, logger, _connection_parameters, config = {})
         # configure_connection happens in super
         super(connection, logger, config)
+
+        if database_version < '11'
+          raise "Your #{mssql_product_name} #{mssql_version_year} is too old. This adapter supports #{mssql_product_name} >= 2012."
+        end
       end
 
       def self.database_exists?(config)
@@ -285,9 +289,8 @@ module ActiveRecord
       end
 
       def check_version # :nodoc:
-        if database_version < '11'
-          raise "Your #{mssql_product_name} #{mssql_version_year} is too old. This adapter supports #{mssql_product_name} >= 2012."
-        end
+        # NOTE: hitting the database from here causes trouble when adapter
+        # uses JNDI or Data Source setup.
       end
 
       def tables_with_referential_integrity

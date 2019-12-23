@@ -2,7 +2,7 @@ require 'test_helper'
 require 'db/mssql'
 
 class MSSQLFinderAndAssociationTest < Test::Unit::TestCase
-  class CreateSimpleSchema < ActiveRecord::Migration[5.1]
+  class CreateSimpleSchema < ActiveRecord::Migration[6.0]
     def self.up
       create_table :writers do |t|
         t.string :email

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'arjdbc/mssql/types/numeric_types'
 require 'arjdbc/mssql/types/string_types'
 require 'arjdbc/mssql/types/binary_types'

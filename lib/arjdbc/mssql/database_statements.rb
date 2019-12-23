@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module ActiveRecord
   module ConnectionAdapters
     module MSSQL
@@ -22,6 +24,15 @@ module ActiveRecord
           end
         end
         alias_method :execute_procedure, :exec_proc # AR-SQLServer-Adapter naming
+
+        READ_QUERY = ActiveRecord::ConnectionAdapters::AbstractAdapter.build_read_query_regexp(
+          :begin, :commit, :explain, :select, :set, :show, :release, :savepoint, :rollback, :with
+        ) # :nodoc:
+        private_constant :READ_QUERY
+
+        def write_query?(sql) # :nodoc:
+          !READ_QUERY.match?(sql)
+        end
 
         def execute(sql, name = nil)
           # with identity insert on block
@@ -50,11 +61,6 @@ module ActiveRecord
           else
             super
           end
-        end
-
-        # Implements the truncate method.
-        def truncate(table_name, name = nil)
-          execute "TRUNCATE TABLE #{quote_table_name(table_name)}", name
         end
 
         # Not a rails method, own method to test different isolation
@@ -95,7 +101,39 @@ module ActiveRecord
           end
         end
 
+        # Implements the truncate method.
+        def truncate(table_name, name = nil)
+          execute "TRUNCATE TABLE #{quote_table_name(table_name)}", name
+        end
+
+        def truncate_tables(*table_names) # :nodoc:
+          return if table_names.empty?
+
+          disable_referential_integrity do
+            table_names.each do |table_name|
+              mssql_truncate(table_name)
+            end
+          end
+        end
+
         private
+
+        # It seems the truncate_tables is mostly used for testing
+        # this a workaround to the fact that SQL Server truncate tables
+        # referenced by a foreign key, it may not be required to reset
+        # the identity column too, more at:
+        #    https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-ver15
+        # TODO: improve is with pure T-SQL, use statements
+        # such as TRY CATCH and reset identity with DBCC CHECKIDENT
+        def mssql_truncate(table_name)
+          execute "TRUNCATE TABLE #{quote_table_name(table_name)}", 'Truncate Tables'
+        rescue => e
+          if e.message =~ /Cannot truncate table .* because it is being referenced by a FOREIGN KEY constraint/
+          execute "DELETE FROM #{quote_table_name(table_name)}", 'Truncate Tables with Delete'
+          else
+            raise
+          end
+        end
 
         # Overrides method in abstract class, combining the sqls with semicolon
         # affects disable_referential_integrity in mssql specially when multiple

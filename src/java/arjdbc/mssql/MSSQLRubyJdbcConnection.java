@@ -57,6 +57,7 @@ import org.jruby.RubyString;
 import org.jruby.RubySymbol;
 import org.jruby.RubyTime;
 import org.jruby.anno.JRubyMethod;
+import org.jruby.runtime.Block;
 import org.jruby.runtime.ObjectAllocator;
 import org.jruby.runtime.ThreadContext;
 import org.jruby.runtime.builtin.IRubyObject;
@@ -594,6 +595,42 @@ public class MSSQLRubyJdbcConnection extends RubyJdbcConnection {
           final DatabaseMetaData metaData = connection.getMetaData();
 
           return context.runtime.newFixnum( metaData.getDatabaseMajorVersion() );
+        }
+      });
+    }
+
+    // Get MSSQL minor version eg. 0
+    @JRubyMethod
+    public IRubyObject database_minor_version(final ThreadContext context) throws SQLException {
+      return withConnection(context, new Callable<IRubyObject>() {
+        public IRubyObject call(final Connection connection) throws SQLException {
+          final DatabaseMetaData metaData = connection.getMetaData();
+
+          return context.runtime.newFixnum( metaData.getDatabaseMinorVersion() );
+        }
+      });
+    }
+
+    // Get MSSQL product name eg. Microsoft SQL Server
+    @JRubyMethod
+    public IRubyObject database_product_name(final ThreadContext context) throws SQLException {
+      return withConnection(context, new Callable<IRubyObject>() {
+        public IRubyObject call(final Connection connection) throws SQLException {
+          final DatabaseMetaData metaData = connection.getMetaData();
+
+          return context.runtime.newString( metaData.getDatabaseProductName() );
+        }
+      });
+    }
+
+    // Get MSSQL product version eg. '14.00.3238'
+    @JRubyMethod
+    public IRubyObject database_product_version(final ThreadContext context) throws SQLException {
+      return withConnection(context, new Callable<IRubyObject>() {
+        public IRubyObject call(final Connection connection) throws SQLException {
+          final DatabaseMetaData metaData = connection.getMetaData();
+
+          return context.runtime.newString( metaData.getDatabaseProductVersion() );
         }
       });
     }

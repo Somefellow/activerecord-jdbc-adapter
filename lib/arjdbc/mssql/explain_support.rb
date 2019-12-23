@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'active_support/core_ext/string'
 
 module ActiveRecord
@@ -108,7 +110,7 @@ module ActiveRecord
           end
 
           def build_separator
-            '+' << @widths.map {|w| '-' * (w + (cell_padding * 2))}.join('+') << '+'
+            '+'.dup << @widths.map {|w| '-' * (w + (cell_padding * 2))}.join('+') << '+'
           end
 
           def build_cells(items)

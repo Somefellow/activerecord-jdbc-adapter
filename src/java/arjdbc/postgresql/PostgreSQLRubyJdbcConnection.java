@@ -35,9 +35,9 @@ import arjdbc.util.StringHelper;
 import java.io.ByteArrayInputStream;
 import java.lang.StringBuilder;
 import java.lang.reflect.InvocationTargetException;
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
@@ -163,15 +163,12 @@ public class PostgreSQLRubyJdbcConnection extends arjdbc.jdbc.RubyJdbcConnection
             try { // public static String getVersion()
                 final String version = (String) // "PostgreSQL 9.2 JDBC4 (build 1002)"
                     jdbcDriver.getClass().getMethod("getVersion").invoke(null);
-                if ( version != null && version.indexOf("JDBC3") >= 0 ) {
+                if ( version != null && version.contains("JDBC3")) {
                     // config[:connection_alive_sql] ||= 'SELECT 1'
                     setConfigValueIfNotSet(context, "connection_alive_sql", context.runtime.newString("SELECT 1"));
                 }
             }
-            catch (NoSuchMethodException e) { }
-            catch (SecurityException e) { }
-            catch (IllegalAccessException e) { }
-            catch (InvocationTargetException e) { }
+            catch (NoSuchMethodException | SecurityException | InvocationTargetException | IllegalAccessException ignored) { }
         }
 
         return driverWrapper;
@@ -218,11 +215,9 @@ public class PostgreSQLRubyJdbcConnection extends arjdbc.jdbc.RubyJdbcConnection
 
     @JRubyMethod(name = "database_product")
     public IRubyObject database_product(final ThreadContext context) {
-        return withConnection(context, new Callable<IRubyObject>() {
-            public IRubyObject call(final Connection connection) throws SQLException {
-                final DatabaseMetaData metaData = connection.getMetaData();
-                return RubyString.newString(context.runtime, metaData.getDatabaseProductName() + ' ' + metaData.getDatabaseProductVersion());
-            }
+        return withConnection(context, (Callable<IRubyObject>) connection -> {
+            final DatabaseMetaData metaData = connection.getMetaData();
+            return RubyString.newString(context.runtime, metaData.getDatabaseProductName() + ' ' + metaData.getDatabaseProductVersion());
         });
     }
 
@@ -308,6 +303,24 @@ public class PostgreSQLRubyJdbcConnection extends arjdbc.jdbc.RubyJdbcConnection
         statement.setArray(index, connection.createArrayOf(typeName, values));
     }
 
+    protected void setDecimalParameter(final ThreadContext context,
+                                       final Connection connection, final PreparedStatement statement,
+                                       final int index, final IRubyObject value,
+                                       final IRubyObject attribute, final int type) throws SQLException {
+        if (value instanceof RubyBigDecimal) {
+            RubyBigDecimal bigDecimal = (RubyBigDecimal) value;
+
+            // too bad RubyBigDecimal.isNaN() isn't public
+            if (bigDecimal.nan_p(context) == context.tru) {
+                statement.setDouble(index, Double.NaN);
+            } else {
+                statement.setBigDecimal(index, bigDecimal.getValue());
+            }
+        } else {
+            super.setDecimalParameter(context, connection, statement, index, value, attribute, type);
+        }
+    }
+
     @Override
     protected void setBlobParameter(final ThreadContext context,
         final Connection connection, final PreparedStatement statement,
@@ -373,18 +386,7 @@ public class PostgreSQLRubyJdbcConnection extends arjdbc.jdbc.RubyJdbcConnection
             }
         }
 
-        if ( ! "Date".equals(value.getMetaClass().getName()) && value.respondsTo("to_date") ) {
-            value = value.callMethod(context, "to_date");
-        }
-
-        int year = RubyNumeric.num2int(value.callMethod(context, "year"));
-        int month = RubyNumeric.num2int(value.callMethod(context, "month"));
-        int day = RubyNumeric.num2int(value.callMethod(context, "day"));
-
-        @SuppressWarnings("deprecated")
-        Date date = new Date(year - 1900, month - 1, day);
-
-        statement.setDate(index, date);
+        super.setDateParameter(context, connection, statement, index, value, attribute, type);
     }
 
     @Override
@@ -514,7 +516,7 @@ public class PostgreSQLRubyJdbcConnection extends arjdbc.jdbc.RubyJdbcConnection
 
     private static Double[] parseDoubles(IRubyObject value) {
         Matcher matches = doubleValuePattern.matcher(value.toString());
-        ArrayList<Double> doubles = new ArrayList<Double>(4); // Paths and polygons may be larger but this covers points/circles/boxes/line segments
+        ArrayList<Double> doubles = new ArrayList<>(4); // Paths and polygons may be larger but this covers points/circles/boxes/line segments
 
         while ( matches.find() ) {
             doubles.add(Double.parseDouble(matches.group()));
@@ -729,6 +731,11 @@ public class PostgreSQLRubyJdbcConnection extends arjdbc.jdbc.RubyJdbcConnection
         return DateTimeUtils.parseDate(context, value, getDefaultTimeZone(context));
     }
 
+    protected IRubyObject decimalToRuby(final ThreadContext context,
+                                        final Ruby runtime, final ResultSet resultSet, final int column) throws SQLException {
+        if ("NaN".equals(resultSet.getString(column)))  return new RubyBigDecimal(runtime, BigDecimal.ZERO, true);
+        return super.decimalToRuby(context, runtime, resultSet, column);
+    }
 
     /**
      * Detects PG specific types and converts them to their Ruby equivalents

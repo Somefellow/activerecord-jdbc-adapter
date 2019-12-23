@@ -75,7 +75,16 @@ class MSSQLTransactionTest < Test::Unit::TestCase
   end
 
   def test_transaction_isolation_read_uncommitted
-    super
+    # NOTE: copied from super (TransactionTestMethods) to make it run here
+    # It is impossible to properly test read uncommitted. The SQL standard only
+    # specifies what must not happen at a certain level, not what must happen. At
+    # the read uncommitted level, there is nothing that must not happen.
+    # test "read uncommitted" do
+    Entry.transaction(:isolation => :read_uncommitted) do
+      assert_equal 0, Entry.count
+      Entry2.create
+      assert_equal 1, Entry.count
+    end
   end
 
   def test_transaction_isolation_read_committed
@@ -133,7 +142,7 @@ class MSSQLTransactionTest < Test::Unit::TestCase
         # The below update line (transaction) is trying to modifying a row that
         # has been read by the above line [Reading line], MSSQL protects the
         # data with a lock so the lock timeout kicks in.
-        MyUser.find(entry.id).update_attributes(login: 'my-user')
+        MyUser.find(entry.id).update(login: 'my-user')
       end
       entry.reload
       assert_equal 'user111', entry.login
@@ -149,7 +158,7 @@ class MSSQLTransactionTest < Test::Unit::TestCase
     User.transaction(isolation: :repeatable_read) do
       user = User.find(entry.id)
       # The below line is updating a row [Update line]
-      user.update_attributes(login: 'my-user')
+      user.update(login: 'my-user')
 
       assert_raise(ActiveRecord::LockTimeout) do
         # The below line is trying to modifying a row that has been updated
@@ -173,7 +182,7 @@ class MSSQLTransactionTest < Test::Unit::TestCase
       # transaction isolation snapshot can see it own updates
       an_entry = User.find(entry.id)
 
-      an_entry.update_attributes(login: 'agent555')
+      an_entry.update(login: 'agent555')
 
       an_entry.reload
       assert_equal 'agent555', an_entry.login
@@ -194,7 +203,7 @@ class MSSQLTransactionTest < Test::Unit::TestCase
       MyUser.transaction(isolation: :read_uncommitted) do
         my_entry = MyUser.find(entry.id)
         # other transaction updates entry
-        my_entry.update_attributes(login: 'agent007')
+        my_entry.update(login: 'agent007')
 
         an_entry.reload
         my_entry.reload
@@ -217,12 +226,12 @@ class MSSQLTransactionTest < Test::Unit::TestCase
       MyUser.transaction(isolation: :read_uncommitted) do
         my_entry = MyUser.find(entry.id)
         # other transaction updates entry
-        assert my_entry.update_attributes(login: 'agent007')
+        assert my_entry.update(login: 'agent007')
       end
 
       # Cannot update record updated by other transaction.
       error = assert_raises(ActiveRecord::StatementInvalid) do
-        an_entry.update_attributes(login: 'agent000')
+        an_entry.update(login: 'agent000')
       end
 
       assert_match(/SQLServerException: Snapshot isolation transaction aborted due to update conflict./, error.message)

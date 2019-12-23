@@ -477,7 +477,7 @@ module SimpleTestMethods
     e = DbType.create! :sample_float => 0
     assert_nil e.reload.sample_boolean # unset boolean should default to nil
 
-    e.update_attributes :sample_boolean => false
+    e.update :sample_boolean => false
     assert_equal false, e.reload.sample_boolean
 
     e.sample_boolean = true
@@ -552,7 +552,7 @@ module SimpleTestMethods
     test_value = BigDecimal('9876543210_9876543210_9876543210.0')
     db_type = DbType.create!(:big_decimal => test_value)
     db_type = DbType.find(db_type.id)
-    assert_kind_of Bignum, db_type.big_decimal
+    assert_kind_of Integer, db_type.big_decimal
     assert_equal test_value, db_type.big_decimal
   end
 
@@ -645,7 +645,13 @@ module SimpleTestMethods
     assert_equal 'user_id', fks[0].options[:column]
     assert_equal 'id', fks[0].options[:primary_key]
 
-    connection.remove_foreign_key :entries, :name => :entries_user_id_fk
+    if ActiveRecord::Base.connection.adapter_name =~ /sqlite/i
+      # SQLite doesn't support named foreign keys
+      connection.remove_foreign_key :entries, :users
+    else
+      connection.remove_foreign_key :entries, name: :entries_user_id_fk
+    end
+
     fks = connection.foreign_keys(:entries)
     assert_equal 0, fks.size
   end

@@ -10,6 +10,12 @@ module ArJdbc
       NO_BINDS = [].freeze
 
       def exec_insert(sql, name = nil, binds = NO_BINDS, pk = nil, sequence_name = nil)
+        if preventing_writes?
+          raise ActiveRecord::ReadOnlyError, "Write query attempted while in readonly mode: #{sql}"
+        end
+
+        materialize_transactions
+
         binds = convert_legacy_binds_to_attributes(binds) if binds.first.is_a?(Array)
 
         if without_prepared_statement?(binds)
@@ -24,6 +30,12 @@ module ArJdbc
       # It appears that at this point (AR 5.0) "prepare" should only ever be true
       # if prepared statements are enabled
       def exec_query(sql, name = nil, binds = NO_BINDS, prepare: false)
+        if preventing_writes? && write_query?(sql)
+          raise ActiveRecord::ReadOnlyError, "Write query attempted while in readonly mode: #{sql}"
+        end
+
+        materialize_transactions
+
         binds = convert_legacy_binds_to_attributes(binds) if binds.first.is_a?(Array)
 
         if without_prepared_statement?(binds)
@@ -38,6 +50,12 @@ module ArJdbc
       end
 
       def exec_update(sql, name = nil, binds = NO_BINDS)
+        if preventing_writes?
+          raise ActiveRecord::ReadOnlyError, "Write query attempted while in readonly mode: #{sql}"
+        end
+
+        materialize_transactions
+
         binds = convert_legacy_binds_to_attributes(binds) if binds.first.is_a?(Array)
 
         if without_prepared_statement?(binds)
@@ -49,6 +67,12 @@ module ArJdbc
       alias :exec_delete :exec_update
 
       def execute(sql, name = nil)
+        if preventing_writes? && write_query?(sql)
+          raise ActiveRecord::ReadOnlyError, "Write query attempted while in readonly mode: #{sql}"
+        end
+
+        materialize_transactions
+
         log(sql, name) { @connection.execute(sql) }
       end
 

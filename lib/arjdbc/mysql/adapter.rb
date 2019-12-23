@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 ArJdbc.load_java_part :MySQL
 
 require 'bigdecimal'
@@ -19,7 +21,7 @@ module ActiveRecord
     remove_const(:Mysql2Adapter) if const_defined?(:Mysql2Adapter)
 
     class Mysql2Adapter < AbstractMysqlAdapter
-      ADAPTER_NAME = 'Mysql2'.freeze
+      ADAPTER_NAME = 'Mysql2'
 
       include Jdbc::ConnectionPoolCallbacks
 
@@ -32,21 +34,30 @@ module ActiveRecord
       include ArJdbc::MySQL
 
       def initialize(connection, logger, connection_parameters, config)
-        # workaround to skip version check on JNDI to be lazy, dummy version is high enough for Rails 5.0 - 6.0
-        is_jndi = ::ActiveRecord::ConnectionAdapters::JdbcConnection.jndi_config?(config)
-        @version = '8.1.5' if is_jndi
-
         super
-
-        # set to nil to have it lazy-load the real value when required
-        @version = nil if is_jndi
 
         @prepared_statements = false unless config.key?(:prepared_statements)
         # configure_connection taken care of at ArJdbc::Abstract::Core
       end
 
+      def self.database_exists?(config)
+        conn = ActiveRecord::Base.mysql2_connection(config)
+        conn && conn.really_valid?
+      rescue ActiveRecord::NoDatabaseError
+        false
+      ensure
+        conn.disconnect! if conn
+      end
+
+      def check_version
+        # for JNDI, don't check version as the whole connection should be lazy
+        return if ::ActiveRecord::ConnectionAdapters::JdbcConnection.jndi_config?(config)
+
+        super
+      end
+
       def supports_json?
-        !mariadb? && version >= '5.7.8'
+        !mariadb? && database_version >= '5.7.8'
       end
 
       def supports_comments?
@@ -61,6 +72,10 @@ module ActiveRecord
         true
       end
 
+      def supports_lazy_transactions?
+        true
+      end
+
       def supports_transaction_isolation?
         true
       end
@@ -70,6 +85,16 @@ module ActiveRecord
       end
 
       # HELPER METHODS ===========================================
+
+      # from MySQL::DatabaseStatements
+      READ_QUERY = ActiveRecord::ConnectionAdapters::AbstractAdapter.build_read_query_regexp(
+        :begin, :commit, :explain, :select, :set, :show, :release, :savepoint, :rollback, :describe, :desc
+      ) # :nodoc:
+      private_constant :READ_QUERY
+
+      def write_query?(sql) # :nodoc:
+        !READ_QUERY.match?(sql)
+      end
 
       # Reloading the type map in abstract/statement_cache.rb blows up postgres
       def clear_cache!
@@ -136,7 +161,13 @@ module ActiveRecord
       private
 
       # e.g. "5.7.20-0ubuntu0.16.04.1"
-      def full_version; @full_version ||= @connection.full_version end
+      def full_version
+        schema_cache.database_version.full_version_string
+      end
+
+      def get_full_version
+        @full_version ||= @connection.full_version
+      end
 
       def jdbc_connection_class(spec)
         ::ActiveRecord::ConnectionAdapters::MySQLJdbcConnection
@@ -152,15 +183,13 @@ module ActiveRecord
       end
 
       # FIXME: optimize insert_fixtures_set by using JDBC Statement.addBatch()/executeBatch()
+
       def combine_multi_statements(total_sql)
-        total_sql
-      end
-
-      def with_multi_statements
-        yield
-      end
-
-      def discard_remaining_results
+        if total_sql.length == 1
+          total_sql.first
+        else
+          total_sql
+        end
       end
     end
   end

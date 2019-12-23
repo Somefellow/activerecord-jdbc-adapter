@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # MSSQL string types definitions
 module ActiveRecord
   module ConnectionAdapters

@@ -2,12 +2,19 @@ require 'test_helper'
 require 'db/mssql'
 
 class MSSQLColumnExactNumericTypesTest < Test::Unit::TestCase
-  class CreateExactNumericTypes < ActiveRecord::Migration[5.1]
+  # NOTE: This specs change the behaviour of the previous versions (Rails 5.x)
+  # where the default value gets send to database as the user defined.
+  # In this versions (Rails 6.0) we adopt the ActiveRecord default behaviour
+  # so the default will be casted as per column definition.
+
+  class CreateExactNumericTypes < ActiveRecord::Migration[6.0]
     def self.up
       create_table 'exact_numeric_types', force: true do |t|
         t.column :my_decimal, :decimal
         t.column :decimal_one, :decimal, precision: 15, default:  9.11
         t.column :decimal_two, :decimal, precision: 15, scale: 2, default: 7.11,  null: false
+        t.column :decimal_rounded, :decimal, precision: 15, scale: 3, default: 54534.6785,  null: false
+        t.column :decimal_unrounded, :decimal, precision: 15, scale: 3, default: 54534.2344,  null: false
         t.column :my_money, :money, null: false, default: 54534.67899
         t.column :my_smallmoney, :smallmoney, null: false, default: 54534.67899
       end
@@ -85,6 +92,34 @@ class MSSQLColumnExactNumericTypesTest < Test::Unit::TestCase
     assert_instance_of Type::Decimal, type
   end
 
+  def test_decimal_with_precison_scale_not_null_default_rounded
+    column = ExactNumericTypes.columns_hash['decimal_rounded']
+
+    assert_equal :decimal,        column.type
+    assert_equal false,           column.null
+    assert_equal '54534.679',     column.default
+    assert_equal 'decimal(15,3)', column.sql_type
+    assert_equal 15,              column.precision
+    assert_equal 3,               column.scale
+
+    type = ExactNumericTypes.connection.send(:type_map).lookup(column.sql_type)
+    assert_instance_of Type::Decimal, type
+  end
+
+  def test_decimal_with_precison_scale_not_null_default_unrounded
+    column = ExactNumericTypes.columns_hash['decimal_unrounded']
+
+    assert_equal :decimal,        column.type
+    assert_equal false,           column.null
+    assert_equal '54534.234',     column.default
+    assert_equal 'decimal(15,3)', column.sql_type
+    assert_equal 15,              column.precision
+    assert_equal 3,               column.scale
+
+    type = ExactNumericTypes.connection.send(:type_map).lookup(column.sql_type)
+    assert_instance_of Type::Decimal, type
+  end
+
   def test_numeric
     column = ExactNumericTypes.columns_hash['decimal_alt']
 
@@ -102,9 +137,13 @@ class MSSQLColumnExactNumericTypesTest < Test::Unit::TestCase
   def test_money
     column = ExactNumericTypes.columns_hash['my_money']
 
+    # NOTE: here the 4 decimal digit is rounded but because is 9
+    # becomes 0 and carries 1 to the 3 decimal digit  resulting.
+    # 54534.67899 becomes 54534.679
+
     assert_equal :money,        column.type
     assert_equal false,         column.null
-    assert_equal '54534.67899', column.default
+    assert_equal '54534.679',   column.default
     assert_equal 'money',       column.sql_type
     assert_equal 19,            column.precision
     assert_equal 4,             column.scale
@@ -118,7 +157,7 @@ class MSSQLColumnExactNumericTypesTest < Test::Unit::TestCase
 
     assert_equal :smallmoney,   column.type
     assert_equal false,         column.null
-    assert_equal '54534.67899', column.default
+    assert_equal '54534.679',   column.default
     assert_equal 'smallmoney',  column.sql_type
     assert_equal 10,            column.precision
     assert_equal 4,             column.scale

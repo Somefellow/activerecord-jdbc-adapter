@@ -1,11 +1,15 @@
+# frozen_string_literal: true
+
 module ActiveRecord
   module ConnectionAdapters
     # MSSQL specific extensions to column definitions in a table.
     class MSSQLColumn < Column
+      attr_reader :table_name
       def initialize(name, raw_default, sql_type_metadata = nil, null = true, table_name = nil, default_function = nil, collation = nil, comment: nil)
+        @table_name = table_name
         default = extract_default(raw_default)
 
-        super(name, default, sql_type_metadata, null, table_name, default_function, collation, comment: comment)
+        super(name, default, sql_type_metadata, null, default_function, collation: collation, comment: comment)
       end
 
       def extract_default(value)

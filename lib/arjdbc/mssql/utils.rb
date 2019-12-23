@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # NOTE: file contains code adapted from **sqlserver** adapter, license follows
 =begin
 Copyright (c) 2008-2015

@@ -4,13 +4,8 @@
 module Arel
   module Visitors
     class SQLServer < Arel::Visitors::ToSql
-
-      OFFSET = " OFFSET "
-      ROWS = " ROWS"
-      FETCH = " FETCH NEXT "
-      FETCH0 = " FETCH FIRST (SELECT 0) "
-      ROWS_ONLY = " ROWS ONLY"
-
+      # 'FETCH FIRST' or 'FETCH NEXT' do the same thing
+      # The SQL ANSI Standard says NEXT and FIRST are synonyms
 
       private
 
@@ -35,24 +30,24 @@ module Arel
 
       def visit_Arel_Nodes_Lock o, collector
         o.expr = Arel.sql('WITH(UPDLOCK)') if o.expr.to_s =~ /FOR UPDATE/
-        collector << SPACE
+        collector << ' '
         visit o.expr, collector
       end
 
       def visit_Arel_Nodes_Offset o, collector
-        collector << OFFSET
+        collector << ' OFFSET '
         visit o.expr, collector
-        collector << ROWS
+        collector << ' ROWS'
       end
 
       def visit_Arel_Nodes_Limit o, collector
         if node_value(o) == 0
-          collector << FETCH0
-          collector << ROWS_ONLY
+          collector << ' FETCH FIRST (SELECT 0) '
+          collector << ' ROWS ONLY'
         else
-          collector << FETCH
+          collector << ' FETCH NEXT '
           visit o.expr, collector
-          collector << ROWS_ONLY
+          collector << ' ROWS ONLY'
         end
       end
 
@@ -61,7 +56,7 @@ module Arel
         distinct_One_As_One_Is_So_Not_Fetch o
         if o.with
           collector = visit o.with, collector
-          collector << SPACE
+          collector << ' '
         end
         collector = o.cores.inject(collector) { |c,x|
           visit_Arel_Nodes_SelectCore(x, c)
@@ -99,7 +94,7 @@ module Arel
           collector = visit_Arel_Nodes_SelectStatement_SQLServer_Lock collector
         end
         if o.right.any?
-          collector << SPACE if o.left
+          collector << ' ' if o.left
           collector = inject_join o.right, collector, ' '
         end
         collector
@@ -110,7 +105,7 @@ module Arel
         collector = visit o.left, collector
         collector = visit_Arel_Nodes_SelectStatement_SQLServer_Lock collector, space: true
         if o.right
-          collector << SPACE
+          collector << ' '
           visit(o.right, collector)
         else
           collector
@@ -121,8 +116,23 @@ module Arel
         collector << "LEFT OUTER JOIN "
         collector = visit o.left, collector
         collector = visit_Arel_Nodes_SelectStatement_SQLServer_Lock collector, space: true
-        collector << SPACE
+        collector << ' '
         visit o.right, collector
+      end
+
+      # NOTE: this overrides the original method in arel visitors 'to_sql.rb'
+      # fixes The ORDER BY clause is invalid in subqueries
+      # FIXME: we should probably have a 2-pass visitor for this
+      def build_subselect(key, o)
+        stmt             = Nodes::SelectStatement.new
+        core             = stmt.cores.first
+        core.froms       = o.relation
+        core.wheres      = o.wheres
+        core.projections = [key]
+        stmt.limit       = o.limit
+        stmt.offset      = o.offset
+        stmt.orders      = []
+        stmt
       end
 
       # SQLServer ToSql/Visitor (Additions)
@@ -130,7 +140,7 @@ module Arel
       def visit_Arel_Nodes_SelectStatement_SQLServer_Lock collector, options = {}
         if select_statement_lock?
           collector = visit @select_statement.lock, collector
-          collector << SPACE if options[:space]
+          collector << ' ' if options[:space]
         end
         collector
       end
@@ -138,12 +148,12 @@ module Arel
       def visit_Orders_And_Let_Fetch_Happen o, collector
         make_Fetch_Possible_And_Deterministic o
         unless o.orders.empty?
-          collector << SPACE
-          collector << ORDER_BY
+          collector << ' '
+          collector << ' ORDER BY '
           len = o.orders.length - 1
           o.orders.each_with_index { |x, i|
             collector = visit(x, collector)
-            collector << COMMA unless len == i
+            collector << ', ' unless len == i
           }
         end
         collector
@@ -205,7 +215,7 @@ module Arel
         elsif Arel::Nodes::SqlLiteral === core.from
           Arel::Table.new(core.from)
         elsif Arel::Nodes::JoinSource === core.source
-          Arel::Nodes::SqlLiteral === core.source.left ? Arel::Table.new(core.source.left, @engine) : core.source.left
+          Arel::Nodes::SqlLiteral === core.source.left ? Arel::Table.new(core.source.left, @engine) : core.source.left.left
         end
       end
 

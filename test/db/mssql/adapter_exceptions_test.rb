@@ -2,7 +2,7 @@ require 'test_helper'
 require 'db/mssql'
 
 class MSSQLExceptionsTest < Test::Unit::TestCase
-  class CreateSystemExceptions < ActiveRecord::Migration[5.1]
+  class CreateSystemExceptions < ActiveRecord::Migration[6.0]
     def self.up
       create_table :system_exceptions do |t|
         t.string :name, limit: 50

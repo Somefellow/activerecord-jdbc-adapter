@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # MSSQL binary types definitions
 module ActiveRecord
   module ConnectionAdapters

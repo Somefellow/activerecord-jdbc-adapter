@@ -50,28 +50,23 @@ class MySQLSimpleTest < Test::Unit::TestCase
     foo_class = Class.new(ActiveRecord::Base)
     foo_class.table_name = 'some_foos'
     time = ::Time.utc(2007, 1, 1, 12, 30, 0, 999999)
-    foo_class.create!(start: time, finish: time, a_date: time.to_date)
+    foo = foo_class.create!(start: time, finish: time, a_date: time.to_date)
 
-    if mariadb_driver?
-      pend 'TODO: MariaDB driver failing HERE, revisit when updated!'
+    if prepared_statements? && mariadb? && db_version >= '10.1'
+      # TODO MariaDB is failing when prepared_statements: true
+      foo.reload
+    else
+      assert foo = foo_class.find_by(start: time)
+      assert_equal 1, foo_class.where(finish: time).count
     end
-
-    assert foo = foo_class.find_by(start: time)
-    assert_equal 1, foo_class.where(finish: time).count
 
     assert_equal time.to_s.sub('2007', '2000'), foo.start.to_s
     assert_equal time.to_s.sub('2007', '2000'), foo.finish.to_s
     assert_equal time.to_date.to_s, foo.a_date.to_s
     assert_equal 000000, foo.start.usec
-    if mariadb_driver? # NOTE: this is a mariadb driver bug, works in latest 2.2
-      warn "#{__method__} assert skipped on MariaDB driver, remove when driver upgraded to 2.x"
-    else
-      assert_equal 999900, foo.finish.usec
-    end
+    assert_equal 999900, foo.finish.usec
 
     # more asserts :
-
-    assert foo = foo_class.find_by(start: time)
     raw_attrs = foo.attributes_before_type_cast
 
     assert_equal Time.utc(2000, 1, 1, 12, 30, 0), raw_attrs['start'] # core AR + mysql2 compat
@@ -283,7 +278,7 @@ class MySQLSimpleTest < Test::Unit::TestCase
 
       host = [ MYSQL_CONFIG[:host] || 'localhost', '127.0.0.1' ] # fail-over
       with_connection(config.merge :host => host, :port => nil) do |connection|
-        assert_match /^jdbc:mysql:\/\/.*?127.0.0.1\//, connection.config[:url]
+        assert_match(/^jdbc:mysql:\/\/.*?127.0.0.1\//, connection.config[:url])
       end
     ensure
       ActiveRecord::Base.establish_connection(MYSQL_CONFIG)
@@ -417,7 +412,7 @@ class MySQLSimpleTest < Test::Unit::TestCase
       assert error.jdbc_exception.is_a?(Java::JavaSql::SQLException)
 
       assert error.error_code
-      assert error.error_code.is_a?(Fixnum)
+      assert error.error_code.is_a?(Integer)
       assert error.sql_state
 
       # MySQL driver 5.1 :
@@ -425,9 +420,9 @@ class MySQLSimpleTest < Test::Unit::TestCase
       unless mariadb_driver?
         assert_match(/SQLSyntaxErrorException: Table '.*?bogus' doesn't exist/, error.message)
       else
-        assert_match /java.sql.SQLSyntaxErrorException: .*Table '.*?bogus' doesn't exist/, error.message
+        assert_match(/java.sql.SQLSyntaxErrorException: .*Table '.*?bogus' doesn't exist/, error.message)
       end
-      assert_match /ActiveRecord::JDBCError: .*?Exception: /, error.inspect
+      assert_match(/ActiveRecord::JDBCError: .*?Exception: /, error.inspect)
 
       # sample error.cause.backtrace :
       #

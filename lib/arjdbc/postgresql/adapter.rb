@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 ArJdbc.load_java_part :PostgreSQL
 
 require 'ipaddr'
@@ -42,45 +42,51 @@ module ArJdbc
     # @see ActiveRecord::ConnectionAdapters::JdbcAdapter#jdbc_column_class
     def jdbc_column_class; ::ActiveRecord::ConnectionAdapters::PostgreSQLColumn end
 
-    ADAPTER_NAME = 'PostgreSQL'.freeze
+    ADAPTER_NAME = 'PostgreSQL'
 
     def adapter_name
       ADAPTER_NAME
     end
 
-    def postgresql_version
-      @postgresql_version ||=
-        begin
-          version = @connection.database_product
-          if match = version.match(/([\d\.]*\d).*?/)
-            version = match[1].split('.').map(&:to_i)
-            # PostgreSQL version representation does not have more than 4 digits
-            # From version 10 onwards, PG has changed its versioning policy to
-            # limit it to only 2 digits. i.e. in 10.x, 10 being the major
-            # version and x representing the patch release
-            # Refer to:
-            #   https://www.postgresql.org/support/versioning/
-            #   https://www.postgresql.org/docs/10/static/libpq-status.html -> PQserverVersion()
-            # for more info
+    def get_database_version # :nodoc:
+      begin
+        version = @connection.database_product
+        if match = version.match(/([\d\.]*\d).*?/)
+          version = match[1].split('.').map(&:to_i)
+          # PostgreSQL version representation does not have more than 4 digits
+          # From version 10 onwards, PG has changed its versioning policy to
+          # limit it to only 2 digits. i.e. in 10.x, 10 being the major
+          # version and x representing the patch release
+          # Refer to:
+          #   https://www.postgresql.org/support/versioning/
+          #   https://www.postgresql.org/docs/10/static/libpq-status.html -> PQserverVersion()
+          # for more info
 
-            if version.size >= 3
-              (version[0] * 100 + version[1]) * 100 + version[2]
-            elsif version.size == 2
-              if version[0] >= 10
-                version[0] * 100 * 100 + version[1]
-              else
-                (version[0] * 100 + version[1]) * 100
-              end
-            elsif version.size == 1
-              version[0] * 100 * 100
+          if version.size >= 3
+            (version[0] * 100 + version[1]) * 100 + version[2]
+          elsif version.size == 2
+            if version[0] >= 10
+              version[0] * 100 * 100 + version[1]
             else
-              0
+              (version[0] * 100 + version[1]) * 100
             end
+          elsif version.size == 1
+            version[0] * 100 * 100
           else
             0
           end
+        else
+          0
         end
+      end
     end
+
+    def check_version # :nodoc:
+      if database_version < 90300
+        raise "Your version of PostgreSQL (#{database_version}) is too old. Active Record supports PostgreSQL >= 9.3."
+      end
+    end
+
 
     def redshift?
       # SELECT version() :
@@ -91,13 +97,6 @@ module ArJdbc
       redshift
     end
     private :redshift?
-
-    def use_insert_returning?
-      if @use_insert_returning.nil?
-        @use_insert_returning = supports_insert_with_returning?
-      end
-      @use_insert_returning
-    end
 
     def set_client_encoding(encoding)
       ActiveRecord::Base.logger.warn "client_encoding is set by the driver and should not be altered, ('#{encoding}' ignored)"
@@ -165,7 +164,7 @@ module ArJdbc
       int4range:    { name: 'int4range' },
       int8range:    { name: 'int8range' },
       integer:      { name: 'integer' },
-      interval:     { name: 'interval' }, # This doesn't get added to AR's postgres adapter until 5.1 but it fixes broken tests in 5.0 ...
+      interval:     { name: 'interval' },
       json:         { name: 'json' },
       jsonb:        { name: 'jsonb' },
       line:         { name: 'line' },
@@ -198,107 +197,114 @@ module ArJdbc
       !native_database_types[type].nil?
     end
 
-    # Enable standard-conforming strings if available.
     def set_standard_conforming_strings
-      self.standard_conforming_strings=(true)
+      execute("SET standard_conforming_strings = on", "SCHEMA")
     end
 
-    # Enable standard-conforming strings if available.
-    def standard_conforming_strings=(enable)
-      client_min_messages = self.client_min_messages
-      begin
-        self.client_min_messages = 'panic'
-        value = enable ? "on" : "off"
-        execute("SET standard_conforming_strings = #{value}", 'SCHEMA')
-        @standard_conforming_strings = ( value == "on" )
-      rescue
-        @standard_conforming_strings = :unsupported
-      ensure
-        self.client_min_messages = client_min_messages
-      end
+    def supports_bulk_alter?
+      true
     end
 
-    def standard_conforming_strings?
-      if @standard_conforming_strings.nil?
-        client_min_messages = self.client_min_messages
-        begin
-          self.client_min_messages = 'panic'
-          value = select_one('SHOW standard_conforming_strings', 'SCHEMA')['standard_conforming_strings']
-          @standard_conforming_strings = ( value == "on" )
-        rescue
-          @standard_conforming_strings = :unsupported
-        ensure
-          self.client_min_messages = client_min_messages
-        end
-      end
-      @standard_conforming_strings == true # return false if :unsupported
+    def supports_index_sort_order?
+      true
     end
 
-    def supports_ddl_transactions?; true end
-
-    def supports_advisory_locks?; true end
-
-    def supports_explain?; true end
-
-    def supports_expression_index?; true end
-
-    def supports_foreign_keys?; true end
-
-    def supports_validate_constraints?; true end
-
-    def supports_index_sort_order?; true end
-
-    def supports_partial_index?; true end
-
-    def supports_savepoints?; true end
-
-    def supports_transaction_isolation?; true end
-
-    def supports_views?; true end
-
-    def supports_bulk_alter?; true end    
-
-    def supports_datetime_with_precision?; true end
-
-    def supports_comments?; true end
-
-    # Does PostgreSQL support standard conforming strings?
-    def supports_standard_conforming_strings?
-      standard_conforming_strings?
-      @standard_conforming_strings != :unsupported
+    def supports_partial_index?
+      true
     end
 
-    def supports_foreign_tables? # we don't really support this yet, its a reminder :)
-      postgresql_version >= 90300
+    def supports_expression_index?
+      true
     end
 
-    def supports_hex_escaped_bytea?
-      postgresql_version >= 90000
+    def supports_transaction_isolation?
+      true
     end
 
-    def supports_materialized_views?
-      postgresql_version >= 90300
+    def supports_foreign_keys?
+      true
+    end
+
+    def supports_validate_constraints?
+      true
+    end
+
+    def supports_views?
+      true
+    end
+
+    def supports_datetime_with_precision?
+      true
     end
 
     def supports_json?
-      postgresql_version >= 90200
+      database_version >= 90200
     end
 
-    def supports_insert_with_returning?
-      postgresql_version >= 80200
+    def supports_comments?
+      true
     end
 
-    def supports_pgcrypto_uuid?
-      postgresql_version >= 90400
+    def supports_savepoints?
+      true
     end
 
-    # Range data-types weren't introduced until PostgreSQL 9.2.
-    def supports_ranges?
-      postgresql_version >= 90200
+    def supports_insert_returning?
+      true
+    end
+
+    def supports_insert_on_conflict?
+      database_version >= 90500
+    end
+    alias supports_insert_on_duplicate_skip? supports_insert_on_conflict?
+    alias supports_insert_on_duplicate_update? supports_insert_on_conflict?
+    alias supports_insert_conflict_target? supports_insert_on_conflict?
+
+    def index_algorithms
+      { concurrently: 'CONCURRENTLY' }
+    end
+
+    def supports_ddl_transactions?
+      true
+    end
+
+    def supports_advisory_locks?
+      true
+    end
+
+    def supports_explain?
+      true
     end
 
     def supports_extensions?
-      postgresql_version >= 90200
+      database_version >= 90200
+    end
+
+    def supports_ranges?
+      database_version >= 90200
+    end
+
+    def supports_materialized_views?
+      database_version >= 90300
+    end
+
+    def supports_foreign_tables? # we don't really support this yet, its a reminder :)
+      database_version >= 90300
+    end
+
+    def supports_pgcrypto_uuid?
+      database_version >= 90400
+    end
+
+    def supports_optimizer_hints?
+      unless defined?(@has_pg_hint_plan)
+        @has_pg_hint_plan = extension_available?("pg_hint_plan")
+      end
+      @has_pg_hint_plan
+    end
+
+    def supports_lazy_transactions?
+      true
     end
 
     # From AR 5.1 postgres_adapter.rb
@@ -306,65 +312,60 @@ module ArJdbc
       index.using == :btree || super
     end
 
+    def get_advisory_lock(lock_id) # :nodoc:
+      unless lock_id.is_a?(Integer) && lock_id.bit_length <= 63
+        raise(ArgumentError, "PostgreSQL requires advisory lock ids to be a signed 64 bit integer")
+      end
+      query_value("SELECT pg_try_advisory_lock(#{lock_id})")
+    end
+
+    def release_advisory_lock(lock_id) # :nodoc:
+      unless lock_id.is_a?(Integer) && lock_id.bit_length <= 63
+        raise(ArgumentError, "PostgreSQL requires advisory lock ids to be a signed 64 bit integer")
+      end
+      query_value("SELECT pg_advisory_unlock(#{lock_id})")
+    end
+
     def enable_extension(name)
-      execute("CREATE EXTENSION IF NOT EXISTS \"#{name}\"")
+      exec_query("CREATE EXTENSION IF NOT EXISTS \"#{name}\"").tap {
+        reload_type_map
+      }
     end
 
     def disable_extension(name)
-      execute("DROP EXTENSION IF EXISTS \"#{name}\" CASCADE")
+      exec_query("DROP EXTENSION IF EXISTS \"#{name}\" CASCADE").tap {
+        reload_type_map
+      }
+    end
+
+    def extension_available?(name)
+      query_value("SELECT true FROM pg_available_extensions WHERE name = #{quote(name)}", "SCHEMA")
     end
 
     def extension_enabled?(name)
-      if supports_extensions?
-        rows = select_rows("SELECT EXISTS(SELECT * FROM pg_available_extensions WHERE name = '#{name}' AND installed_version IS NOT NULL)", 'SCHEMA')
-        available = rows.first.first # true/false or 't'/'f'
-        available == true || available == 't'
-      end
+      query_value("SELECT installed_version IS NOT NULL FROM pg_available_extensions WHERE name = #{quote(name)}", "SCHEMA")
     end
 
     def extensions
-      if supports_extensions?
-        rows = select_rows "SELECT extname from pg_extension", "SCHEMA"
-        rows.map { |row| row.first }
-      else
-        []
-      end
+      exec_query("SELECT extname FROM pg_extension", "SCHEMA").cast_values
     end
 
-    def index_algorithms
-      { :concurrently => 'CONCURRENTLY' }
+    # Returns the configured supported identifier length supported by PostgreSQL
+    def max_identifier_length
+      @max_identifier_length ||= query_value("SHOW max_identifier_length", "SCHEMA").to_i
     end
 
-    # Set the authorized user for this session.
+    # Set the authorized user for this session
     def session_auth=(user)
       clear_cache!
-      execute "SET SESSION AUTHORIZATION #{user}"
+      execute("SET SESSION AUTHORIZATION #{user}")
     end
 
-    # Came from postgres_adapter
-    def get_advisory_lock(lock_id) # :nodoc:
-      unless lock_id.is_a?(Integer) && lock_id.bit_length <= 63
-        raise(ArgumentError, "Postgres requires advisory lock ids to be a signed 64 bit integer")
-      end
-      select_value("SELECT pg_try_advisory_lock(#{lock_id});")
+    def use_insert_returning?
+      @use_insert_returning
     end
 
-    # Came from postgres_adapter
-    def release_advisory_lock(lock_id) # :nodoc:
-      unless lock_id.is_a?(Integer) && lock_id.bit_length <= 63
-        raise(ArgumentError, "Postgres requires advisory lock ids to be a signed 64 bit integer")
-      end
-      select_value("SELECT pg_advisory_unlock(#{lock_id})")
-    end
-
-    # Returns the max identifier length supported by PostgreSQL
-    def max_identifier_length
-      @max_identifier_length ||= select_one('SHOW max_identifier_length', 'SCHEMA'.freeze)['max_identifier_length'].to_i
-    end
-    alias table_alias_length max_identifier_length
-    alias index_name_length max_identifier_length
-
-    def exec_insert(sql, name, binds, pk = nil, sequence_name = nil)
+    def exec_insert(sql, name = nil, binds = [], pk = nil, sequence_name = nil)
       val = super
       if !use_insert_returning? && pk
         unless sequence_name
@@ -383,20 +384,12 @@ module ArJdbc
       ActiveRecord::ConnectionAdapters::PostgreSQL::ExplainPrettyPrinter.new.pp(exec_query("EXPLAIN #{sql}", 'EXPLAIN', binds))
     end
 
-    # @note Only for "better" AR 4.0 compatibility.
-    # @private
-    def query(sql, name = nil)
-      log(sql, name) do
-        result = []
-        @connection.execute_query_raw(sql, []) do |*values|
-          # We need to use #deep_dup here because it appears that
-          # the java method is reusing an object in some cases
-          # which makes all of the entries in the "result"
-          # array end up with the same values as the last row
-          result << values.deep_dup
-        end
-        result
-      end
+    # from ActiveRecord::ConnectionAdapters::PostgreSQL::DatabaseStatements
+    READ_QUERY = ActiveRecord::ConnectionAdapters::AbstractAdapter.build_read_query_regexp(:begin, :commit, :explain, :select, :set, :show, :release, :savepoint, :rollback) # :nodoc:
+    private_constant :READ_QUERY
+
+    def write_query?(sql) # :nodoc:
+      !READ_QUERY.match?(sql)
     end
 
     # We need to make sure to deallocate all the prepared statements
@@ -425,6 +418,24 @@ module ArJdbc
 
     def last_insert_id_result(sequence_name)
       exec_query("SELECT currval('#{sequence_name}')", 'SQL')
+    end
+
+    def build_insert_sql(insert) # :nodoc:
+      sql = +"INSERT #{insert.into} #{insert.values_list}"
+
+      if insert.skip_duplicates?
+        sql << " ON CONFLICT #{insert.conflict_target} DO NOTHING"
+      elsif insert.update_duplicates?
+        sql << " ON CONFLICT #{insert.conflict_target} DO UPDATE SET "
+        sql << insert.updatable_columns.map { |column| "#{column}=excluded.#{column}" }.join(",")
+      end
+
+      sql << " RETURNING #{insert.returning}" if insert.returning
+      sql
+    end
+
+    def build_truncate_statements(*table_names)
+      "TRUNCATE TABLE #{table_names.map(&method(:quote_table_name)).join(", ")}"
     end
 
     def all_schemas
@@ -463,13 +474,7 @@ module ArJdbc
 
     def escape_bytea(string)
       return unless string
-      if supports_hex_escaped_bytea?
-        "\\x#{string.unpack("H*")[0]}"
-      else
-        result = ''
-        string.each_byte { |c| result << sprintf('\\\\%03o', c) }
-        result
-      end
+      "\\x#{string.unpack("H*")[0]}"
     end
 
     # @override
@@ -502,34 +507,6 @@ module ArJdbc
       nil
     end
 
-    # Returns the list of a table's column names, data types, and default values.
-    #
-    # If the table name is not prefixed with a schema, the database will
-    # take the first match from the schema search path.
-    #
-    # Query implementation notes:
-    #  - format_type includes the column size constraint, e.g. varchar(50)
-    #  - ::regclass is a function that gives the id for a table name
-    def column_definitions(table_name)
-      select_rows(<<-end_sql, 'SCHEMA')
-        SELECT a.attname, format_type(a.atttypid, a.atttypmod),
-               pg_get_expr(d.adbin, d.adrelid), a.attnotnull, a.atttypid, a.atttypmod,
-               (SELECT c.collname FROM pg_collation c, pg_type t
-                 WHERE c.oid = a.attcollation AND t.oid = a.atttypid
-                  AND a.attcollation <> t.typcollation),
-               col_description(a.attrelid, a.attnum) AS comment
-          FROM pg_attribute a
-          LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
-         WHERE a.attrelid = #{quote(quote_table_name(table_name))}::regclass
-           AND a.attnum > 0 AND NOT a.attisdropped
-         ORDER BY a.attnum
-      end_sql
-    end
-    private :column_definitions
-
-    def truncate(table_name, name = nil)
-      execute "TRUNCATE TABLE #{quote_table_name(table_name)}", name
-    end
 
     # @private
     def column_name_for_operation(operation, node)
@@ -543,50 +520,82 @@ module ArJdbc
 
     private
 
+    # Returns the list of a table's column names, data types, and default values.
+    #
+    # If the table name is not prefixed with a schema, the database will
+    # take the first match from the schema search path.
+    #
+    # Query implementation notes:
+    #  - format_type includes the column size constraint, e.g. varchar(50)
+    #  - ::regclass is a function that gives the id for a table name
+    def column_definitions(table_name)
+      select_rows(<<~SQL, 'SCHEMA')
+        SELECT a.attname, format_type(a.atttypid, a.atttypmod),
+               pg_get_expr(d.adbin, d.adrelid), a.attnotnull, a.atttypid, a.atttypmod,
+               c.collname, col_description(a.attrelid, a.attnum) AS comment
+          FROM pg_attribute a
+          LEFT JOIN pg_attrdef d ON a.attrelid = d.adrelid AND a.attnum = d.adnum
+          LEFT JOIN pg_type t ON a.atttypid = t.oid
+          LEFT JOIN pg_collation c ON a.attcollation = c.oid AND a.attcollation <> t.typcollation
+         WHERE a.attrelid = #{quote(quote_table_name(table_name))}::regclass
+           AND a.attnum > 0 AND NOT a.attisdropped
+         ORDER BY a.attnum
+      SQL
+    end
+
+    def extract_table_ref_from_insert_sql(sql)
+      sql[/into\s("[A-Za-z0-9_."\[\]\s]+"|[A-Za-z0-9_."\[\]]+)\s*/im]
+      $1.strip if $1
+    end
+
+    def arel_visitor
+      Arel::Visitors::PostgreSQL.new(self)
+    end
+
     # Pulled from ActiveRecord's Postgres adapter and modified to use execute
     def can_perform_case_insensitive_comparison_for?(column)
       @case_insensitive_cache ||= {}
       @case_insensitive_cache[column.sql_type] ||= begin
-        sql = <<-end_sql
-              SELECT exists(
-                SELECT * FROM pg_proc
-                WHERE proname = 'lower'
-                  AND proargtypes = ARRAY[#{quote column.sql_type}::regtype]::oidvector
-              ) OR exists(
-                SELECT * FROM pg_proc
-                INNER JOIN pg_cast
-                  ON ARRAY[casttarget]::oidvector = proargtypes
-                WHERE proname = 'lower'
-                  AND castsource = #{quote column.sql_type}::regtype
-              )
-        end_sql
+        sql = <<~SQL
+          SELECT exists(
+            SELECT * FROM pg_proc
+            WHERE proname = 'lower'
+              AND proargtypes = ARRAY[#{quote column.sql_type}::regtype]::oidvector
+          ) OR exists(
+            SELECT * FROM pg_proc
+            INNER JOIN pg_cast
+              ON ARRAY[casttarget]::oidvector = proargtypes
+            WHERE proname = 'lower'
+              AND castsource = #{quote column.sql_type}::regtype
+          )
+        SQL
         select_value(sql, 'SCHEMA')
       end
     end
 
-    def translate_exception(exception, message)
+    def translate_exception(exception, message:, sql:, binds:)
       return super unless exception.is_a?(ActiveRecord::JDBCError)
 
       # TODO: Can we base these on an error code of some kind?
       case exception.message
       when /duplicate key value violates unique constraint/
-        ::ActiveRecord::RecordNotUnique.new(message)
+        ::ActiveRecord::RecordNotUnique.new(message, sql: sql, binds: binds)
       when /violates not-null constraint/
-        ::ActiveRecord::NotNullViolation.new(message)
+        ::ActiveRecord::NotNullViolation.new(message, sql: sql, binds: binds)
       when /violates foreign key constraint/
-        ::ActiveRecord::InvalidForeignKey.new(message)
+        ::ActiveRecord::InvalidForeignKey.new(message, sql: sql, binds: binds)
       when /value too long/
-        ::ActiveRecord::ValueTooLong.new(message)
+        ::ActiveRecord::ValueTooLong.new(message, sql: sql, binds: binds)
       when /out of range/
-        ::ActiveRecord::RangeError.new(message)
+        ::ActiveRecord::RangeError.new(message, sql: sql, binds: binds)
       when /could not serialize/
-        ::ActiveRecord::SerializationFailure.new(message)
+        ::ActiveRecord::SerializationFailure.new(message, sql: sql, binds: binds)
       when /deadlock detected/
-        ::ActiveRecord::Deadlocked.new(message)
+        ::ActiveRecord::Deadlocked.new(message, sql: sql, binds: binds)
       when /lock timeout/
-        ::ActiveRecord::LockWaitTimeout.new(message)
+        ::ActiveRecord::LockWaitTimeout.new(message, sql: sql, binds: binds)
       when /canceling statement/ # This needs to come after lock timeout because the lock timeout message also contains "canceling statement"
-        ::ActiveRecord::QueryCanceled.new(message)
+        ::ActiveRecord::QueryCanceled.new(message, sql: sql, binds: binds)
       else
         super
       end
@@ -610,11 +619,6 @@ module ArJdbc
       end
     end
 
-    def extract_table_ref_from_insert_sql(sql)
-      sql[/into\s("[A-Za-z0-9_."\[\]\s]+"|[A-Za-z0-9_."\[\]]+)\s*/im]
-      $1.strip if $1
-    end
-
     def local_tz
       @local_tz ||= execute('SHOW TIME ZONE', 'SCHEMA').first["TimeZone"]
     end
@@ -635,6 +639,7 @@ module ActiveRecord::ConnectionAdapters
   remove_const(:PostgreSQLAdapter) if const_defined?(:PostgreSQLAdapter)
 
   class PostgreSQLAdapter < AbstractAdapter
+    class_attribute :create_unlogged_tables, default: false
 
     # Try to use as much of the built in postgres logic as possible
     # maybe someday we can extend the actual adapter
@@ -672,11 +677,16 @@ module ActiveRecord::ConnectionAdapters
       initialize_type_map
 
       @use_insert_returning = @config.key?(:insert_returning) ?
-        self.class.type_cast_config_to_boolean(@config[:insert_returning]) : nil
+        self.class.type_cast_config_to_boolean(@config[:insert_returning]) : true
     end
 
-    def arel_visitor # :nodoc:
-      Arel::Visitors::PostgreSQL.new(self)
+    def self.database_exists?(config)
+      conn = ActiveRecord::Base.postgresql_connection(config)
+      conn && conn.really_valid?
+    rescue ActiveRecord::NoDatabaseError
+      false
+    ensure
+      conn.disconnect! if conn
     end
 
     require 'active_record/connection_adapters/postgresql/schema_definitions'
@@ -685,11 +695,8 @@ module ActiveRecord::ConnectionAdapters
     TableDefinition = ActiveRecord::ConnectionAdapters::PostgreSQL::TableDefinition
     Table = ActiveRecord::ConnectionAdapters::PostgreSQL::Table
 
-    def create_table_definition(*args) # :nodoc:
-      TableDefinition.new(*args)
-    end
-
     public :sql_for_insert
+    alias :postgresql_version :database_version
 
     def jdbc_connection_class(spec)
       ::ArJdbc::PostgreSQL.jdbc_connection_class

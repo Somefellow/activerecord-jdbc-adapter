@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module ArJdbc
   module Abstract
 
@@ -34,28 +36,26 @@ module ArJdbc
 
       protected
 
-      def translate_exception_class(e, sql)
-        begin
-          message = "#{e.class.name}: #{e.message}: #{sql}"
-        rescue Encoding::CompatibilityError
-          message = "#{e.class.name}: #{e.message.force_encoding sql.encoding}: #{sql}"
-        end
+      def translate_exception_class(e, sql, binds)
+        message = "#{e.class.name}: #{e.message}"
 
-        exception = translate_exception(e, message)
-        exception.set_backtrace e.backtrace unless e.equal?(exception)
+        exception = translate_exception(
+          e, message: message, sql: sql, binds: binds
+        )
+        exception.set_backtrace e.backtrace
         exception
       end
 
-      def translate_exception(e, message)
+      def translate_exception(exception, message:, sql:, binds:)
         # override in derived class
 
         # we shall not translate native "Java" exceptions as they might
         # swallow an ArJdbc / driver bug into an AR::StatementInvalid !
-        return e if e.is_a?(Java::JavaLang::Throwable)
+        return exception if exception.is_a?(Java::JavaLang::Throwable)
 
-        case e
-          when SystemExit, SignalException, NoMemoryError then e
-          when ActiveModel::RangeError, TypeError, RuntimeError then e
+        case exception
+          when SystemExit, SignalException, NoMemoryError then exception
+          when ActiveModel::RangeError, TypeError, RuntimeError then exception
           else super
         end
       end
@@ -74,13 +74,6 @@ module ArJdbc
     end
   end
 
-  module LogSubscriber
-    JDBC_GEM_ROOT = File.expand_path("../../../..", __FILE__) + "/"
-
-    # Remove this gem from log trace so that query shows where it was called in application
-    def ignored_callstack(path)
-      super || path.start_with?(JDBC_GEM_ROOT)
-    end
-  end
-  ActiveRecord::LogSubscriber.prepend(ArJdbc::LogSubscriber)
+  JDBC_GEM_ROOT = File.expand_path("../../../..", __FILE__) + "/"
+  ActiveRecord::LogSubscriber.backtrace_cleaner.add_silencer { |line| line.start_with?(JDBC_GEM_ROOT) }
 end

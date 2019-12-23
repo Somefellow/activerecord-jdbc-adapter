@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module ActiveRecord
   module ConnectionAdapters
     module MSSQL
@@ -63,6 +65,42 @@ module ActiveRecord
         # @private
         # @see #quote in old adapter
         BLOB_VALUE_MARKER = "''"
+
+        def column_name_matcher
+          COLUMN_NAME
+        end
+
+        def column_name_with_order_matcher
+          COLUMN_NAME_WITH_ORDER
+        end
+
+        COLUMN_NAME = /
+          \A
+          (
+            (?:
+              # \[table_name\].\[column_name\] | function(one or no argument)
+              ((?:\w+\.|\[\w+\]\.)?(?:\w+|\[\w+\])) | \w+\((?:|\g<2>)\)
+            )
+            (?:\s+AS\s+(?:\w+|\[\w+\]))?
+          )
+          (?:\s*,\s*\g<1>)*
+          \z
+        /ix
+
+        COLUMN_NAME_WITH_ORDER = /
+          \A
+          (
+            (?:
+              # \[table_name\].\[column_name\] | function(one or no argument)
+              ((?:\w+\.|\[\w+\]\.)?(?:\w+|\[\w+\])) | \w+\((?:|\g<2>)\)
+            )
+            (?:\s+ASC|\s+DESC)?
+          )
+          (?:\s*,\s*\g<1>)*
+          \z
+        /ix
+
+        private_constant :COLUMN_NAME, :COLUMN_NAME_WITH_ORDER
 
         private
 

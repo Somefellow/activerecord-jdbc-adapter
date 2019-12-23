@@ -5,25 +5,28 @@ module ActiveRecord::Tasks
   DatabaseTasks.module_eval do
 
     # @override patched to adapt jdbc configuration
-    def each_current_configuration(environment)
+    def each_current_configuration(environment, spec_name = nil)
       environments = [environment]
       environments << 'test' if environment == 'development'
 
-      configurations = ActiveRecord::Base.configurations.values_at(*environments)
-      configurations.compact.each do |config|
-        yield adapt_jdbc_config(config) unless config['database'].blank?
+      environments.each do |env|
+        ActiveRecord::Base.configurations.configs_for(env_name: env).each do |db_config|
+          next if spec_name && spec_name != db_config.spec_name
+
+          yield adapt_jdbc_config(db_config.config), db_config.spec_name, env unless db_config.config['database'].blank?
+        end
       end
     end
 
     # @override patched to adapt jdbc configuration
     def each_local_configuration
-      ActiveRecord::Base.configurations.each_value do |config|
-        next unless config['database']
+      ActiveRecord::Base.configurations.configs_for.each do |db_config|
+        next unless db_config.config['database']
 
-        if local_database?(config)
-          yield adapt_jdbc_config(config)
+        if local_database?(db_config.config)
+          yield adapt_jdbc_config(db_config.config)
         else
-          $stderr.puts "This task only modifies local databases. #{config['database']} is on a remote host."
+          $stderr.puts "This task only modifies local databases. #{db_config.config['database']} is on a remote host."
         end
       end
     end

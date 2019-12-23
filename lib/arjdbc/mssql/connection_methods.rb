@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 ArJdbc::ConnectionMethods.module_eval do
 
   # Default connection method for MS-SQL adapter (`adapter: mssql`),
@@ -10,6 +12,8 @@ ArJdbc::ConnectionMethods.module_eval do
     if config[:driver] =~ /SQLServerDriver$/ || config[:url] =~ /^jdbc:sqlserver:/
       return sqlserver_connection(config)
     end
+
+    config = config.deep_dup
 
     config[:adapter_spec] ||= ::ArJdbc::MSSQL
     config[:adapter_class] = ActiveRecord::ConnectionAdapters::MSSQLAdapter unless config.key?(:adapter_class)
@@ -31,7 +35,8 @@ ArJdbc::ConnectionMethods.module_eval do
     config[:connection_alive_sql] ||= 'SELECT 1'
 
     config[:url] ||= begin
-      url = "jdbc:jtds:sqlserver://#{config[:host]}:#{config[:port]}/#{config[:database]}"
+      url = ''.dup
+      url << "jdbc:jtds:sqlserver://#{config[:host]}:#{config[:port]}/#{config[:database]}"
       # Instance is often a preferrable alternative to port when dynamic ports are used.
       # If instance is specified then port is essentially ignored.
       url << ";instance=#{config[:instance]}" if config[:instance]
@@ -65,7 +70,8 @@ ArJdbc::ConnectionMethods.module_eval do
     config[:lock_timeout] ||= 5000
 
     config[:url] ||= begin
-      url = "jdbc:sqlserver://#{config[:host]}"
+      url = ''.dup
+      url << "jdbc:sqlserver://#{config[:host]}"
       url << ( config[:port] ? ":#{config[:port]};" : ';' )
       url << "databaseName=#{config[:database]};" if config[:database]
       url << "instanceName=#{config[:instance]};" if config[:instance]

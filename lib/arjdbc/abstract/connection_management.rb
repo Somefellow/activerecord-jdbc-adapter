@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module ArJdbc
   module Abstract
     module ConnectionManagement
@@ -6,6 +8,11 @@ module ArJdbc
       def active?
         return unless @connection
         @connection.active?
+      end
+
+      def really_valid?
+        return unless @connection
+        @connection.really_valid?
       end
 
       # @override

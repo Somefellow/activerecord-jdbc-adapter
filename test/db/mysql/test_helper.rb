@@ -23,7 +23,7 @@ module MySQLTestHelper
   alias mariadb? mariadb_server?
 
   def database_version
-    ActiveRecord::Base.connection.raw_connection.full_version
+    ActiveRecord::Base.connection.database_version
   end
   alias db_version database_version
 

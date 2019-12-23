@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'active_record/connection_adapters/statement_pool'
 
 module ArJdbc
@@ -39,11 +41,6 @@ module ArJdbc
 
       def fetch_cached_statement(sql)
         @statements[sql_key(sql)] ||= @connection.prepare_statement(sql)
-      end
-
-      def supports_statement_cache?
-        ActiveSupport::Deprecation.deprecation_warning(__method__)
-        @jdbc_statement_cache_enabled
       end
 
       private

@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 module ActiveRecord
   module ConnectionAdapters
     module MSSQL
-      module SchemaStatements
+      module SchemaStatements # :nodoc:
 
         NATIVE_DATABASE_TYPES = {
           # Logical Rails types to SQL Server types
@@ -41,23 +43,36 @@ module ActiveRecord
           NATIVE_DATABASE_TYPES
         end
 
-        # Returns an array of Column objects for the table specified by +table_name+.
-        # See the concrete implementation for details on the expected parameter values.
-        # NOTE: This is ready, all implemented in the java part of adapter,
-        # it uses MSSQLColumn, SqlTypeMetadata, etc.
-        def columns(table_name)
-          log('JDBC: GETCOLUMNS', 'SCHEMA') { @connection.columns(table_name) }
-        rescue => e
-          # raise translate_exception_class(e, nil)
-          # FIXME: this breaks one arjdbc test but fixes activerecord tests
-          # (table name alias). Also it behaves similarly to the CRuby adapter
-          # which returns an empty array too. (postgres throws a exception)
-          []
-        end
-
         # Returns an array of indexes for the given table.
-        def indexes(table_name, name = nil)
-          @connection.indexes(table_name, name)
+        def indexes(table_name)
+          data = select("EXEC sp_helpindex #{quote(table_name)}", "SCHEMA") rescue []
+
+          data.reduce([]) do |indexes, index|
+            index = index.with_indifferent_access
+
+            if index[:index_description] =~ /primary key/
+              indexes
+            else
+              name    = index[:index_name]
+              unique  = index[:index_description].to_s.match?(/unique/)
+              where   = select_value("SELECT [filter_definition] FROM sys.indexes WHERE name = #{quote(name)}")
+              orders  = {}
+              columns = []
+
+              index[:index_keys].split(',').each do |column|
+                column.strip!
+
+                if column.ends_with?('(-)')
+                  column.gsub! '(-)', ''
+                  orders[column] = :desc
+                end
+
+                columns << column
+              end
+
+              indexes << IndexDefinition.new(table_name, name, unique, columns, where: where, orders: orders)
+            end
+          end
         end
 
         def primary_keys(table_name)
@@ -124,7 +139,7 @@ module ActiveRecord
             end
           end
 
-          if options[:if_exists] && @mssql_major_version < 13
+          if options[:if_exists] && mssql_major_version < 13
             # this is for sql server 2012 and 2014
             execute "IF EXISTS(SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_NAME = #{quote(table_name)}) DROP TABLE #{quote_table_name(table_name)}"
           else
@@ -193,7 +208,7 @@ module ActiveRecord
               column_type_sql << "(#{precision})"
             else
               raise(
-                ActiveRecordError,
+                ArgumentError,
                 "No #{native[:name]} type has precision of #{precision}. The " \
                 'allowed range of precision is from 0 to 7, even though the ' \
                 'sql type precision is 7 this adapter will persist up to 6 ' \
@@ -218,6 +233,14 @@ module ActiveRecord
             }.reject(&:blank?).map.with_index { |column, i| "#{column} AS alias_#{i}" }
 
           (order_columns << super).join(', ')
+        end
+
+        def add_timestamps(table_name, options = {})
+          if !options.key?(:precision) && supports_datetime_with_precision?
+            options[:precision] = 7
+          end
+
+          super
         end
 
         def create_schema_dumper(options)
@@ -299,13 +322,30 @@ module ActiveRecord
           execute(sql_alter.join(' '))
         end
 
+        def update_table_definition(table_name, base) #:nodoc:
+          MSSQL::Table.new(table_name, base)
+        end
+
         private
+
+        def schema_creation
+          MSSQL::SchemaCreation.new(self)
+        end
+
+        def create_table_definition(*args)
+          MSSQL::TableDefinition.new(self, *args)
+        end
+
+        def new_column_from_field(table_name, field)
+          field
+        end
 
         def data_source_sql(name = nil, type: nil)
           scope = quoted_scope(name, type: type)
           table_name = 'TABLE_NAME'
 
-          sql = "SELECT #{table_name}"
+          sql = ''.dup
+          sql << "SELECT #{table_name}"
           sql << ' FROM INFORMATION_SCHEMA.TABLES'
           sql << ' WHERE TABLE_CATALOG = DB_NAME()'
           sql << " AND TABLE_SCHEMA = #{quote(scope[:schema])}"
@@ -327,7 +367,9 @@ module ActiveRecord
         end
 
         def change_column_type(table_name, column_name, type, options = {})
-          sql = "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} #{type_to_sql(type, limit: options[:limit], precision: options[:precision], scale: options[:scale])}"
+          sql = ''.dup
+
+          sql << "ALTER TABLE #{quote_table_name(table_name)} ALTER COLUMN #{quote_column_name(column_name)} #{type_to_sql(type, limit: options[:limit], precision: options[:precision], scale: options[:scale])}"
           sql << (options[:null] ? " NULL" : " NOT NULL") if options.has_key?(:null)
           result = execute(sql)
           result

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module ActiveRecord
   module ConnectionAdapters
     module MSSQL
@@ -77,6 +79,14 @@ module ActiveRecord
           case type
           when :primary_key
             options[:is_identity] = true
+          end
+
+          super
+        end
+
+        def timestamps(**options)
+          if !options.key?(:precision) && @conn.supports_datetime_with_precision?
+            options[:precision] = 7
           end
 
           super

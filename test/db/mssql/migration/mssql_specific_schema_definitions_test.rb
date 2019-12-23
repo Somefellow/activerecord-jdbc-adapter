@@ -3,7 +3,7 @@ require 'db/mssql'
 
 module MSSQLMigration
   class SpecificSchemaDefinitionsTest < Test::Unit::TestCase
-    class CreateSpecificSchemaDefinitions < ActiveRecord::Migration[5.1]
+    class CreateSpecificSchemaDefinitions < ActiveRecord::Migration[6.0]
       def self.up
         create_table :mssql_specific_columms do |t|
           t.smalldatetime :my_smalldatetime
@@ -58,6 +58,8 @@ module MSSQLMigration
       assert_match %r{t\.binary_basic\s+"my_binary_basic",\s+limit: 1$}, output
       assert_match %r{t\.varbinary\s+"my_varbinary"$}, output
       assert_match %r{t\.uuid\s+"my_uuid"$}, output
+      assert_match %r{t\.datetime\s+"created_at",\s+null: false$}, output
+      assert_match %r{t\.datetime\s+"updated_at",\s+null: false$}, output
     end
 
     private

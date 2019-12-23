@@ -59,7 +59,7 @@ class MSSQLConnectionTest < Test::Unit::TestCase
 
     # Verify the setting has been applied.
     expect = @connection.select_value('SELECT @@LOCK_TIMEOUT AS [lock_timeout]')
-    assert_equal -1, expect
+    assert_equal(-1, expect)
 
     @connection.reset!
 
@@ -72,7 +72,7 @@ class MSSQLConnectionTest < Test::Unit::TestCase
   def test_reset_with_transaction
     @connection.execute('SET LOCK_TIMEOUT -1')
     lock_timeout = @connection.select_value('SELECT @@LOCK_TIMEOUT AS [lock_timeout]')
-    assert_equal -1, lock_timeout
+    assert_equal(-1, lock_timeout)
 
     @connection.transaction_isolation = :serializable
     assert_equal :serializable, @connection.transaction_isolation

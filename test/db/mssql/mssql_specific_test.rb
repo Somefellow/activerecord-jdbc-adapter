@@ -17,8 +17,18 @@ class MSSQLSpecificTest < Test::Unit::TestCase
   end
 
   def test_mssql_unsupported_version
+    product_name = 'Microsoft SQL Server'
+    product_version = '10.00.4343'
+    major_version = 10
+
     ActiveRecord::ConnectionAdapters::MSSQLAdapter
-      .any_instance.stubs(:mssql_major_version).returns(10)
+      .any_instance.stubs(:mssql_product_version).returns(product_version)
+
+    ActiveRecord::ConnectionAdapters::MSSQLAdapter
+      .any_instance.stubs(:mssql_product_name).returns(product_name)
+
+    ActiveRecord::ConnectionAdapters::MSSQLAdapter
+      .any_instance.stubs(:mssql_major_version).returns(major_version)
 
     ActiveRecord::Base.clear_all_connections!
 
@@ -26,7 +36,7 @@ class MSSQLSpecificTest < Test::Unit::TestCase
       ActiveRecord::Base.connection.execute('SELECT 1')
     end
 
-    assert_equal 'Your MSSQL 2008 is too old. This adapter supports MSSQL >= 2012.', error.message
+    assert_equal "Your #{product_name} 2008 is too old. This adapter supports #{product_name} >= 2012.", error.message
   end
 
   def test_mssql_supported_version

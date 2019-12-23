@@ -1,4 +1,4 @@
-# frozen_string_literal: false
+# frozen_string_literal: true
 
 ArJdbc.load_java_part :MSSQL
 
@@ -68,8 +68,19 @@ module ActiveRecord
         # configure_connection happens in super
         super(connection, logger, config)
 
-        unless mssql_major_version >= 11
-          raise "Your MSSQL #{mssql_version_year} is too old. This adapter supports MSSQL >= 2012."
+        if database_version < '11'
+          raise "Your #{mssql_product_name} #{mssql_version_year} is too old. This adapter supports #{mssql_product_name} >= 2012."
+        end
+      end
+
+      def self.database_exists?(config)
+        !!ActiveRecord::Base.sqlserver_connection(config)
+      rescue ActiveRecord::JDBCError => e
+        case e.message
+        when /Cannot open database .* requested by the login/
+          false
+        else
+          raise
         end
       end
 
@@ -101,6 +112,14 @@ module ActiveRecord
         true
       end
 
+      def supports_savepoints?
+        true
+      end
+
+      def supports_lazy_transactions?
+        true
+      end
+
       # The MSSQL datetime type doe have precision.
       def supports_datetime_with_precision?
         true
@@ -121,12 +140,23 @@ module ActiveRecord
         true
       end
 
+      def supports_insert_on_conflict?
+        false
+      end
+      alias supports_insert_on_duplicate_skip? supports_insert_on_conflict?
+      alias supports_insert_on_duplicate_update? supports_insert_on_conflict?
+      alias supports_insert_conflict_target? supports_insert_on_conflict?
+
+      def build_insert_sql(insert) # :nodoc:
+        # TODO: hope we can implement an upsert like feature
+        "INSERT #{insert.into} #{insert.values_list}"
+      end
+
       # Overrides abstract method which always returns false
       def valid_type?(type)
         !native_database_types[type].nil?
       end
 
-      # FIXME: to be reviewed.
       def clear_cache!
         reload_type_map
         super
@@ -170,22 +200,6 @@ module ActiveRecord
         result
       end
 
-      def arel_visitor # :nodoc:
-        ::Arel::Visitors::SQLServer.new(self)
-      end
-
-      def schema_creation # :nodoc:
-        MSSQL::SchemaCreation.new(self)
-      end
-
-      def create_table_definition(*args) # :nodoc:
-        MSSQL::TableDefinition.new(*args)
-      end
-
-      def update_table_definition(table_name, base) #:nodoc:
-        MSSQL::Table.new(table_name, base)
-      end
-
       # Returns the name of the current security context
       def current_user
         @current_user ||= select_value('SELECT CURRENT_USER')
@@ -208,15 +222,25 @@ module ActiveRecord
 
       alias_method :current_schema=, :default_schema=
 
-      # Overrides method in abstract adapter
-      # FIXME: This needs to be fixed the we find a way how to
-      # get the collation per column basis. At the moment we only use
-      # the global database collation
-      def case_sensitive_comparison(table, attribute, column, value)
-        if [:string, :text].include?(column.type) && collation && !collation.match(/_CS/)
-          table[attribute].eq(Arel::Nodes::Bin.new(value))
-        # elsif value.acts_like?(:string)
-        #   table[attribute].eq(Arel::Nodes::Bin.new(Arel::Nodes::BindParam.new))
+      # FIXME: This needs to be fixed when we implement the collation per
+      # column basis. At the moment we only use the global database collation
+      def default_uniqueness_comparison(attribute, value, klass) # :nodoc:
+        column = column_for_attribute(attribute)
+
+        if [:string, :text].include?(column.type) && collation && !collation.match(/_CS/) && !value.nil?
+          # NOTE: there is a deprecation warning here in the mysql adapter
+          # no sure if it's required.
+          attribute.eq(Arel::Nodes::Bin.new(value))
+        else
+          super
+        end
+      end
+
+      def case_sensitive_comparison(attribute, value)
+        column = column_for_attribute(attribute)
+
+        if [:string, :text].include?(column.type) && collation && !collation.match(/_CS/) && !value.nil?
+          attribute.eq(Arel::Nodes::Bin.new(value))
         else
           super
         end
@@ -248,6 +272,27 @@ module ActiveRecord
         MSSQL_VERSION_YEAR[mssql_major_version.to_i]
       end
 
+      def mssql_product_version
+        return @mssql_product_version if defined? @mssql_product_version
+
+        @mssql_product_version = @connection.database_product_version
+      end
+
+      def mssql_product_name
+        return @mssql_product_name if defined? @mssql_product_name
+
+        @mssql_product_name = @connection.database_product_name
+      end
+
+      def get_database_version # :nodoc:
+        MSSQLAdapter::Version.new(mssql_product_version)
+      end
+
+      def check_version # :nodoc:
+        # NOTE: hitting the database from here causes trouble when adapter
+        # uses JNDI or Data Source setup.
+      end
+
       def tables_with_referential_integrity
         schema_and_tables_sql = %(
           SELECT s.name, o.name
@@ -266,20 +311,22 @@ module ActiveRecord
 
       private
 
-      def translate_exception(exception, message)
+      def translate_exception(exception, message:, sql:, binds:)
         case message
         when /(cannot insert duplicate key .* with unique index) | (violation of unique key constraint)/i
-          RecordNotUnique.new(message)
+          RecordNotUnique.new(message, sql: sql, binds: binds)
         when /Lock request time out period exceeded/i
-          LockTimeout.new(message)
+          LockTimeout.new(message, sql: sql, binds: binds)
         when /The .* statement conflicted with the FOREIGN KEY constraint/
-          ActiveRecord::InvalidForeignKey.new(message)
+          InvalidForeignKey.new(message, sql: sql, binds: binds)
+        when /The .* statement conflicted with the REFERENCE constraint/
+          InvalidForeignKey.new(message, sql: sql, binds: binds)
         when /(String or binary data would be truncated)/i
-          ActiveRecord::ValueTooLong.new(message)
+          ValueTooLong.new(message, sql: sql, binds: binds)
         when /Cannot insert the value NULL into column .* does not allow nulls/
-          ActiveRecord::NotNullViolation.new(message)
+          NotNullViolation.new(message, sql: sql, binds: binds)
         when /Arithmetic overflow error converting expression/
-          ActiveRecord::RangeError.new(message)
+          RangeError.new(message, sql: sql, binds: binds)
         else
           super
         end
@@ -386,6 +433,28 @@ module ActiveRecord
         map.register_type 'text',  MSSQL::Type::Text.new
         map.register_type 'ntext', MSSQL::Type::Ntext.new
         map.register_type 'image', MSSQL::Type::Image.new
+      end
+
+      # Returns an array of Column objects for the table specified by +table_name+.
+      # See the concrete implementation for details on the expected parameter values.
+      # NOTE: This is ready, all implemented in the java part of adapter,
+      # it uses MSSQLColumn, SqlTypeMetadata, etc.
+      def column_definitions(table_name)
+       log('JDBC: GETCOLUMNS', 'SCHEMA') { @connection.columns(table_name) }
+      rescue => e
+        # raise translate_exception_class(e, nil)
+        # FIXME: this breaks one arjdbc test but fixes activerecord tests
+        # (table name alias). Also it behaves similarly to the CRuby adapter
+        # which returns an empty array too. (postgres throws a exception)
+        []
+      end
+
+      def arel_visitor # :nodoc:
+        ::Arel::Visitors::SQLServer.new(self)
+      end
+
+      def build_statement_pool
+        # NOTE: @statements is set in StatementCache module
       end
     end
   end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module ArJdbc
   module PostgreSQL
 
@@ -20,13 +22,13 @@ module ArJdbc
           # Quoted types
           when /\A[\(B]?'(.*)'.*::"?([\w. ]+)"?(?:\[\])?\z/m
             # The default 'now'::date is CURRENT_DATE
-            if $1 == "now".freeze && $2 == "date".freeze
+            if $1 == "now" && $2 == "date"
               nil
             else
-              $1.gsub("''".freeze, "'".freeze)
+              $1.gsub("''", "'")
             end
           # Boolean types
-          when 'true'.freeze, 'false'.freeze
+          when 'true', 'false'
             default
           # Numeric types
           when /\A\(?(-?\d+(\.\d*)?)\)?(::bigint)?\z/
@@ -46,7 +48,7 @@ module ArJdbc
       end
 
       def has_default_function?(default_value, default)
-        !default_value && %r{\w+\(.*\)|\(.*\)::\w+|CURRENT_DATE|CURRENT_TIMESTAMP} === default
+        !default_value && %r{\w+\(.*\)|\(.*\)::\w+|CURRENT_DATE|CURRENT_TIMESTAMP}.match?(default)
       end
     end
 

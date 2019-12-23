@@ -6,16 +6,20 @@ supported by the original adapter such as PostgreSQL but it is advised to
 use the [original adapter](https://github.com/jruby/active)
 
 This adapter only works with JRuby and it is advised to install the latest
-stable versions of Rails
+stable of this adapter and Rails
 
-- For Rails `5.0.7.2` install the `50.3.1` version of this adapter
-- For Rails `5.1.7` install the `51.3.0` version of this adapter
-- For Rails `5.2.3` install the `52.2.0` version of this adapter
-
-Support for Rails 6.0 is planned in the future.
+| Gem Version | Rails Version | min JRuby |
+| ----------- | ------------- | --------- |
+| 50.6.1      | 5.0.7.2       | 9.1.x     |
+| 51.6.1      | 5.1.7         | 9.1.x     |
+| 52.5.1      | 5.2.4.1       | 9.1.x     |
+| 60.0.0      | 6.0.2         | 9.2.9     |
 
 This adapter passes most of the Rails tests (ActiveRecord tests) with the
-exception of some test that are not compatible with the SQL Server
+exception of some test that are not compatible with the SQL Server. To run
+the test use the following fork [Rails](https://github.com/JesseChavez/rails/tree/6-0-stable-dev),
+and the instructions in file `RUNNING_TESTS.md`. The fork has some
+schema tweaks to make it compatible with SQL Server.
 
 ### How to use it:
 
@@ -24,13 +28,17 @@ Add the following to your `Gemfile`:
 ```ruby
 platforms :jruby do
   # Use jdbc as the database for Active Record
-  gem 'activerecord-jdbc-alt-adapter', '~> 50.3.1', require: 'arjdbc'
-  gem 'jdbc-mssql', '~> 0.6.0'
+  gem 'activerecord-jdbc-alt-adapter', '~> 60.0.0'
+  gem 'jdbc-mssql', '~> 0.7.0'
 end
 ```
 
-Or look at the sample rails 5.0 app  [wombat](https://github.com/JesseChavez/wombat50)
-and see how is set up.
+Or look at the sample rails and see how is set up:
+
+- Rails 6.0 sample app [wombat60](https://github.com/JesseChavez/wombat60)
+
+- Old rails 5.0 app  [wombat50](https://github.com/JesseChavez/wombat50)
+
 
 ### Breaking changes
 
@@ -100,14 +108,6 @@ production:
   username:
   password:
 ```
-
-
-### NOTE
-
-Keep one eye in the Rails connection pool, we have not thoroughly tested that
-part since we don't use the default Rails connection pool, other than that
-this adapter should just work.
-
 
 
 # ActiveRecord JDBC Adapter

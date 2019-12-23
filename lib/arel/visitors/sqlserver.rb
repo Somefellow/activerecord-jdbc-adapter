@@ -4,6 +4,8 @@
 module Arel
   module Visitors
     class SQLServer < Arel::Visitors::ToSql
+      # 'FETCH FIRST' or 'FETCH NEXT' do the same thing
+      # The SQL ANSI Standard says NEXT and FIRST are synonyms
 
       private
 

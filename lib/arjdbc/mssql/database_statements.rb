@@ -123,6 +123,8 @@ module ActiveRecord
         # referenced by a foreign key, it may not be required to reset
         # the identity column too, more at:
         #    https://docs.microsoft.com/en-us/sql/t-sql/statements/truncate-table-transact-sql?view=sql-server-ver15
+        # TODO: improve is with pure T-SQL, use statements
+        # such as TRY CATCH and reset identity with DBCC CHECKIDENT
         def mssql_truncate(table_name)
           execute "TRUNCATE TABLE #{quote_table_name(table_name)}", 'Truncate Tables'
         rescue => e

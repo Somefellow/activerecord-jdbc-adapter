@@ -13,13 +13,10 @@ Gem::Specification.new do |gem|
   gem.description = "" <<
     "Fork of the ActiveRecord JDBC adapter with support for SQL Server and Azure SQL, " <<
     "for more information and help look at the README file in the github repository. " <<
-    "AR-JDBC is a database adapter for Rails' ActiveRecord component designed " <<
-    "to be used with JRuby built upon Java's JDBC API for database access. " <<
-    "Provides (ActiveRecord) built-in adapters: MySQL, PostgreSQL and SQLite3 " <<
-    "as well as adapters for popular databases such as Oracle, SQLServer, " <<
-    "DB2, FireBird and even Java (embed) databases: Derby, HSQLDB and H2. " <<
-    "It allows to connect to virtually any JDBC-compliant database with your " <<
-    "JRuby on Rails application."
+    "AR-JDBC is a database adapter for Rails' ActiveRecord component " <<
+    "designed to be used with JRuby built upon Java's JDBC API for " <<
+    "database access. Provides (ActiveRecord) built-in adapters: MySQL,  " <<
+    "PostgreSQL, SQLite3, and SQLServer."
 
   gem.require_paths = ["lib"]
 
@@ -46,7 +43,7 @@ Gem::Specification.new do |gem|
   gem.executables = gem.files.grep(%r{^bin/}).map { |f| File.basename(f) }
   gem.test_files = gem.files.grep(%r{^test/})
 
-  gem.add_dependency 'activerecord', '~> 5.2.0', '>= 5.2.3'
+  gem.add_dependency 'activerecord', '~> 6.0.0'
 
   #gem.add_development_dependency 'test-unit', '2.5.4'
   #gem.add_development_dependency 'test-unit-context', '>= 0.3.0'

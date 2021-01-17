@@ -6,12 +6,20 @@ class MSSQLSimpleTest < Test::Unit::TestCase
   include ActiveRecord3TestMethods
   include DirtyAttributeTests
 
-  include ExplainSupportTestMethods if ar_version("3.1")
-
   # MS SQL 2005 doesn't have a DATE class, only TIMESTAMP
 
   # String comparisons are insensitive by default
   undef_method :test_validates_uniqueness_of_strings_case_sensitive
+
+  # override arjdbc simple test
+  def test_fetching_columns_for_nonexistent_table
+    skip('FIXME: allow return an empty array for not existing tables but fixes several table alias AR tests')
+    disable_logger(Animal.connection) do
+      assert_raise(ActiveRecord::StatementInvalid) do # ActiveRecord::JDBCError
+        Animal.columns
+      end
+    end
+  end
 
   # @override
   def test_save_timestamp_with_usec

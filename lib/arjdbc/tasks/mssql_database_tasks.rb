@@ -1,16 +1,36 @@
+require 'active_record/tasks/database_tasks'
+
 require 'arjdbc/tasks/jdbc_database_tasks'
 
 module ArJdbc
   module Tasks
     class MSSQLDatabaseTasks < JdbcDatabaseTasks
+      delegate :clear_active_connections!, to: ActiveRecord::Base
+
+      def create
+        establish_master_connection
+        connection.create_database(configuration['database'])
+        establish_connection configuration
+      rescue ActiveRecord::StatementInvalid => error
+        case error.message
+        when /database .* already exists/i
+          raise ActiveRecord::Tasks::DatabaseAlreadyExists
+        else
+          raise
+        end
+      end
+
+      def drop
+        establish_master_connection
+        connection.drop_database configuration['database']
+      end
 
       def purge
-        test = deep_dup(configuration)
-        test_database = resolve_database(test)
-        test['database'] = 'master'
-        establish_connection(test)
-        connection.recreate_database!(test_database)
+        clear_active_connections!
+        drop
+        create
       end
+
 
       def structure_dump(filename)
         config = config_from_url_if_needed
@@ -23,6 +43,10 @@ module ArJdbc
       end
 
       private
+
+      def establish_master_connection
+        establish_connection configuration.merge('database' => 'master')
+      end
 
       def config_from_url_if_needed
         config = self.config
@@ -42,5 +66,25 @@ module ArJdbc
       end
 
     end
+
+    module DatabaseTasksMSSQL
+      extend ActiveSupport::Concern
+
+      module ClassMethods
+
+      def check_protected_environments!
+        super
+      rescue ActiveRecord::JDBCError => error
+        case error.message
+        when /cannot open database .* requested by the login/i
+        else
+          raise
+        end
+      end
+
+      end
+    end
+
+    ActiveRecord::Tasks::DatabaseTasks.send :include, DatabaseTasksMSSQL
   end
 end

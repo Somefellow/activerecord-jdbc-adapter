@@ -8,9 +8,9 @@ use the [original adapter](https://github.com/jruby/active)
 This adapter only works with JRuby and it is advised to install the latest
 stable versions of Rails
 
-- For Rails `5.0.7.2` install the `50.3.1` version of this adapter
-- For Rails `5.1.7` install the `51.3.0` version of this adapter
-- For Rails `5.2.3` install the `52.2.0` version of this adapter
+- For Rails `5.0.7` install the `50.7.0` version of this adapter
+- For Rails `5.1.7` install the `51.7.0` version of this adapter
+- For Rails `5.2.4` install the `52.6.0` version of this adapter
 
 Support for Rails 6.0 is planned in the future.
 
@@ -24,8 +24,8 @@ Add the following to your `Gemfile`:
 ```ruby
 platforms :jruby do
   # Use jdbc as the database for Active Record
-  gem 'activerecord-jdbc-alt-adapter', '~> 50.3.1', require: 'arjdbc'
-  gem 'jdbc-mssql', '~> 0.6.0'
+  gem 'activerecord-jdbc-alt-adapter', '~> 52.6.0'
+  gem 'jdbc-mssql', '~> 0.9.0'
 end
 ```
 

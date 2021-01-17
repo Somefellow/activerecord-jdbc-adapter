@@ -166,7 +166,8 @@ class MSSQLUnitTest < Test::Unit::TestCase
   def new_adapter_stub(config = {})
     config = config.merge :adapter => 'mssql', :sqlserver_version => 2008
     logger = nil
-    connection = stub('connection', database_major_version: 11)
+    # connection = stub('connection', database_major_version: 11)
+    connection = stub('connection', database_product_version: '14.00.3238')
     connection.stub_everything
 
     adapter = ActiveRecord::ConnectionAdapters::MSSQLAdapter.new connection, logger, config

@@ -10,10 +10,10 @@ stable of this adapter and Rails
 
 | Gem Version | Rails Version | min JRuby |
 | ----------- | ------------- | --------- |
-| 50.6.1      | 5.0.7.2       | 9.1.x     |
-| 51.6.1      | 5.1.7         | 9.1.x     |
-| 52.5.1      | 5.2.4.1       | 9.1.x     |
-| 60.0.0      | 6.0.2         | 9.2.9     |
+| 50.7.0      | 5.0.7         | 9.1.x     |
+| 51.7.0      | 5.1.7         | 9.1.x     |
+| 52.6.0      | 5.2.4         | 9.1.x     |
+| 60.1.0      | 6.0.3         | 9.2.9     |
 
 This adapter passes most of the Rails tests (ActiveRecord tests) with the
 exception of some test that are not compatible with the SQL Server. To run
@@ -28,8 +28,8 @@ Add the following to your `Gemfile`:
 ```ruby
 platforms :jruby do
   # Use jdbc as the database for Active Record
-  gem 'activerecord-jdbc-alt-adapter', '~> 60.0.0'
-  gem 'jdbc-mssql', '~> 0.7.0'
+  gem 'activerecord-jdbc-alt-adapter', '~> 60.1.0'
+  gem 'jdbc-mssql', '~> 0.9.0'
 end
 ```
 

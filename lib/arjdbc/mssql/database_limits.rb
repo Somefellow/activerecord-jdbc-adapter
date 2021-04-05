@@ -8,6 +8,13 @@ module ActiveRecord
        # Returns the maximum number of elements in an IN (x,y,z) clause.
        # NOTE: Could not find a limit for IN in mssql but 10000 seems to work
        # with the active record tests
+       # FIXME: this method was deprecated in rails 6.1, and it seems the only
+       # code that used this method was the oracle visitor, the code was moved
+       # from rails to the adapter itself.
+       #   https://github.com/rsim/oracle-enhanced/pull/2008/files
+       # related:
+       #   https://github.com/rails/rails/pull/38946
+       #   https://github.com/rails/rails/pull/39057
        def in_clause_length
          10_000
        end

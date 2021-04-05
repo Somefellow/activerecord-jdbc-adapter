@@ -22,7 +22,7 @@ module ActiveRecord
           attribute_names.delete_if do |name|
             # It seems is only required to check if column in identity or not.
             # This allows to update rails custom primary keys
-            next true if readonly_attribute?(name)
+            next true if self.class.readonly_attribute?(name)
 
             column = self.class.columns_hash[name]
             column && column.identity?

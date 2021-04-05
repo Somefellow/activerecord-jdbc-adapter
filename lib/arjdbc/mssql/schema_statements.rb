@@ -129,6 +129,9 @@ module ActiveRecord
 
         def remove_column(table_name, column_name, type = nil, options = {})
           raise ArgumentError.new('You must specify at least one column name.  Example: remove_column(:people, :first_name)') if column_name.is_a? Array
+
+          return if options[:if_exists] == true && !column_exists?(table_name, column_name)
+
           remove_check_constraints(table_name, column_name)
           remove_default_constraint(table_name, column_name)
           remove_indexes(table_name, column_name)

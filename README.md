@@ -2,8 +2,8 @@
 
 This adapter is a fork of the ActiveRecord JDBC Adapter with basic support for
 **SQL Server/Azure SQL**. This adapter may work with other databases
-supported by the original adapter such as PostgreSQL but it is advised to
-use the [original adapter](https://github.com/jruby/active)
+supported by the original adapter such as MySQL but it is advised to
+use the [original adapter](https://github.com/jruby/activerecord-jdbc-adapter)
 
 This adapter only works with JRuby and it is advised to install the latest
 stable of this adapter and Rails
@@ -14,10 +14,11 @@ stable of this adapter and Rails
 | 51.7.0      | 5.1.7         | 9.1.x     |
 | 52.6.0      | 5.2.4         | 9.1.x     |
 | 60.1.0      | 6.0.3         | 9.2.9     |
+| 61.0.0      | 6.1.3         | 9.2.16    |
 
 This adapter passes most of the Rails tests (ActiveRecord tests) with the
 exception of some test that are not compatible with the SQL Server. To run
-the test use the following fork [Rails](https://github.com/JesseChavez/rails/tree/6-0-stable-dev),
+the test use the following fork [Rails](https://github.com/JesseChavez/rails/tree/6-1-stable-dev),
 and the instructions in file `RUNNING_TESTS.md`. The fork has some
 schema tweaks to make it compatible with SQL Server.
 
@@ -28,16 +29,18 @@ Add the following to your `Gemfile`:
 ```ruby
 platforms :jruby do
   # Use jdbc as the database for Active Record
-  gem 'activerecord-jdbc-alt-adapter', '~> 60.1.0'
+  gem 'activerecord-jdbc-alt-adapter', '~> 61.0.0'
   gem 'jdbc-mssql', '~> 0.9.0'
 end
 ```
 
 Or look at the sample rails and see how is set up:
 
+- Rails 6.1 sample app [wombat61](https://github.com/JesseChavez/wombat61)
+
 - Rails 6.0 sample app [wombat60](https://github.com/JesseChavez/wombat60)
 
-- Old rails 5.0 app  [wombat50](https://github.com/JesseChavez/wombat50)
+- Rails 5.0 sample app [wombat50](https://github.com/JesseChavez/wombat50)
 
 
 ### Breaking changes

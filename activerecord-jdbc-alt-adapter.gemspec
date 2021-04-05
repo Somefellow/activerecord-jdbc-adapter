@@ -5,8 +5,8 @@ Gem::Specification.new do |gem|
   path = File.expand_path('lib/arjdbc/version.rb', File.dirname(__FILE__))
   gem.version = File.read(path).match( /.*VERSION\s*=\s*['"](.*)['"]/m )[1]
   gem.platform = 'java' # due jar-dependencies to resolve requirements for ext
-  gem.authors = ['Nick Sieger, Ola Bini, Karol Bucek and JRuby contributors']
-  gem.email = ['nick@nicksieger.com', 'ola.bini@gmail.com', 'self@kares.org']
+  gem.authors = ['Nick Sieger, Ola Bini, Karol Bucek, Jesse Chavez, and JRuby contributors']
+  gem.email = ['nick@nicksieger.com', 'ola.bini@gmail.com', 'self@kares.org', 'jesse.chavez.r@gmail.com']
   gem.homepage = 'https://github.com/JesseChavez/activerecord-jdbc-adapter'
   gem.license = 'BSD-2-Clause'
   gem.summary = 'ActiveRecord JDBC adapter, for use within JRuby on Rails and SQL Server'
@@ -36,7 +36,7 @@ Gem::Specification.new do |gem|
     #gem.requirements << "jar org.postgresql:postgresql, 42.1.4.jre6, :scope => :compile"
 
     # compilation .jar dependencies for extension (at least until `mvn') :
-    gem.add_development_dependency 'jdbc-mysql', '~> 5.1.44'
+    gem.add_development_dependency 'jdbc-mysql', '~> 8.0.0'
     gem.add_development_dependency 'jdbc-postgres', '~> 42.1'
   end
 

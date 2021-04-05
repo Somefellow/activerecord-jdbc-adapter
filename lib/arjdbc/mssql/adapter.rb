@@ -313,6 +313,8 @@ module ActiveRecord
 
       def translate_exception(exception, message:, sql:, binds:)
         case message
+        when /no connection available/i
+          ConnectionNotEstablished.new(exception)
         when /(cannot insert duplicate key .* with unique index) | (violation of unique key constraint)/i
           RecordNotUnique.new(message, sql: sql, binds: binds)
         when /Lock request time out period exceeded/i

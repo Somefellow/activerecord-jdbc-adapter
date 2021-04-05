@@ -16,6 +16,33 @@ require "active_record/connection_adapters/sqlite3/schema_dumper"
 require "active_record/connection_adapters/sqlite3/schema_statements"
 require "active_support/core_ext/class/attribute"
 
+module SQLite3
+  module Constants
+    module Open
+      READONLY       = 0x00000001
+      READWRITE      = 0x00000002
+      CREATE         = 0x00000004
+      DELETEONCLOSE  = 0x00000008
+      EXCLUSIVE      = 0x00000010
+      AUTOPROXY      = 0x00000020
+      URI            = 0x00000040
+      MEMORY         = 0x00000080
+      MAIN_DB        = 0x00000100
+      TEMP_DB        = 0x00000200
+      TRANSIENT_DB   = 0x00000400
+      MAIN_JOURNAL   = 0x00000800
+      TEMP_JOURNAL   = 0x00001000
+      SUBJOURNAL     = 0x00002000
+      MASTER_JOURNAL = 0x00004000
+      NOMUTEX        = 0x00008000
+      FULLMUTEX      = 0x00010000
+      SHAREDCACHE    = 0x00020000
+      PRIVATECACHE   = 0x00040000
+      WAL            = 0x00080000
+    end
+  end
+end
+
 module ArJdbc
   # All the code in this module is a copy of ConnectionAdapters::SQLite3Adapter from active_record 5.
   # The constants at the front of this file are to allow the rest of the file to remain with no modifications
@@ -69,6 +96,10 @@ module ArJdbc
       true
     end
 
+    def supports_transaction_isolation?
+      true
+    end
+
     def supports_partial_index?
       database_version >= "3.9.0"
     end
@@ -82,6 +113,10 @@ module ArJdbc
     end
 
     def supports_foreign_keys?
+      true
+    end
+
+    def supports_check_constraints?
       true
     end
 
@@ -112,13 +147,6 @@ module ArJdbc
 
     def supports_index_sort_order?
       true
-    end
-
-    # Returns 62. SQLite supports index names up to 64
-    # characters. The rest is used by Rails internally to perform
-    # temporary rename operations
-    def allowed_index_name_length
-      index_name_length - 2
     end
 
     def native_database_types #:nodoc:
@@ -159,7 +187,7 @@ module ArJdbc
     #++
 
     READ_QUERY = ActiveRecord::ConnectionAdapters::AbstractAdapter.build_read_query_regexp(
-      :begin, :commit, :explain, :select, :pragma, :release, :savepoint, :rollback, :with
+      :pragma
     ) # :nodoc:
     private_constant :READ_QUERY
 
@@ -187,15 +215,15 @@ module ArJdbc
     #def execute(sql, name = nil) #:nodoc:
 
     def begin_db_transaction #:nodoc:
-      log("begin transaction", nil) { @connection.transaction }
+      log("begin transaction", 'TRANSACTION') { @connection.transaction }
     end
 
     def commit_db_transaction #:nodoc:
-      log("commit transaction", nil) { @connection.commit }
+      log("commit transaction", 'TRANSACTION') { @connection.commit }
     end
 
     def exec_rollback_db_transaction #:nodoc:
-      log("rollback transaction", nil) { @connection.rollback }
+      log("rollback transaction", 'TRANSACTION') { @connection.rollback }
     end
 
     # SCHEMA STATEMENTS ========================================
@@ -205,8 +233,11 @@ module ArJdbc
       pks.sort_by { |f| f["pk"] }.map { |f| f["name"] }
     end
 
-    def remove_index(table_name, options = {}) #:nodoc:
-      index_name = index_name_for_remove(table_name, options)
+      def remove_index(table_name, column_name = nil, **options) # :nodoc:
+        return if options[:if_exists] && !index_exists?(table_name, column_name, **options)
+
+      index_name = index_name_for_remove(table_name, column_name, options)
+
       exec_query "DROP INDEX #{quote_column_name(index_name)}"
     end
 
@@ -215,14 +246,16 @@ module ArJdbc
     # Example:
     #   rename_table('octopuses', 'octopi')
     def rename_table(table_name, new_name)
+      schema_cache.clear_data_source_cache!(table_name.to_s)
+      schema_cache.clear_data_source_cache!(new_name.to_s)
       exec_query "ALTER TABLE #{quote_table_name(table_name)} RENAME TO #{quote_table_name(new_name)}"
       rename_table_indexes(table_name, new_name)
     end
 
-    def add_column(table_name, column_name, type, options = {}) #:nodoc:
+    def add_column(table_name, column_name, type, **options) #:nodoc:
       if invalid_alter_table_type?(type, options)
         alter_table(table_name) do |definition|
-          definition.column(column_name, type, options)
+          definition.column(column_name, type, **options)
         end
       else
         super
@@ -255,16 +288,11 @@ module ArJdbc
       end
     end
 
-    def change_column(table_name, column_name, type, options = {}) #:nodoc:
+    def change_column(table_name, column_name, type, **options) #:nodoc:
       alter_table(table_name) do |definition|
         definition[column_name].instance_eval do
           self.type    = type
-          self.limit   = options[:limit] if options.include?(:limit)
-          self.default = options[:default] if options.include?(:default)
-          self.null    = options[:null] if options.include?(:null)
-          self.precision = options[:precision] if options.include?(:precision)
-          self.scale   = options[:scale] if options.include?(:scale)
-          self.collation = options[:collation] if options.include?(:collation)
+            self.options.merge!(options)
         end
       end
     end
@@ -313,10 +341,15 @@ module ArJdbc
         sql << " ON CONFLICT #{insert.conflict_target} DO NOTHING"
       elsif insert.update_duplicates?
         sql << " ON CONFLICT #{insert.conflict_target} DO UPDATE SET "
+        sql << insert.touch_model_timestamps_unless { |column| "#{column} IS excluded.#{column}" }
         sql << insert.updatable_columns.map { |column| "#{column}=excluded.#{column}" }.join(",")
       end
 
       sql
+    end
+
+    def shared_cache?
+      config[:properties] && config[:properties][:shared_cache] == true
     end
 
     def get_database_version # :nodoc:
@@ -325,15 +358,6 @@ module ArJdbc
 
     def build_truncate_statement(table_name)
       "DELETE FROM #{quote_table_name(table_name)}"
-    end
-
-    def build_truncate_statements(*table_names)
-      table_names.flatten.map { |table_name| build_truncate_statement table_name }
-    end
-
-    def truncate(table_name, name = nil)
-      ActiveRecord::Base.clear_query_caches_for_current_thread if @query_cache_enabled
-      execute(build_truncate_statement(table_name), name)
     end
 
     def check_version
@@ -347,11 +371,6 @@ module ArJdbc
     # the default value is 999 when not configured.
     def bind_params_length
       999
-    end
-
-    def initialize_type_map(m = type_map)
-      super
-      register_class_with_limit m, %r(int)i, SQLite3Integer
     end
 
     def table_structure(table_name)
@@ -368,7 +387,12 @@ module ArJdbc
         options[:null] == false && options[:default].nil?
     end
 
-    def alter_table(table_name, foreign_keys = foreign_keys(table_name), **options)
+    def alter_table(
+      table_name,
+      foreign_keys = foreign_keys(table_name),
+      check_constraints = check_constraints(table_name),
+      **options
+    )
       altered_table_name = "a#{table_name}"
 
       caller = lambda do |definition|
@@ -378,7 +402,11 @@ module ArJdbc
             fk.options[:column] = column
           end
           to_table = strip_table_name_prefix_and_suffix(fk.to_table)
-          definition.foreign_key(to_table, fk.options)
+          definition.foreign_key(to_table, **fk.options)
+        end
+
+        check_constraints.each do |chk|
+          definition.check_constraint(chk.expression, **chk.options)
         end
 
         yield definition if block_given?
@@ -400,11 +428,12 @@ module ArJdbc
     def copy_table(from, to, options = {})
       from_primary_key = primary_key(from)
       options[:id] = false
-      create_table(to, options) do |definition|
+      create_table(to, **options) do |definition|
         @definition = definition
         if from_primary_key.is_a?(Array)
           @definition.primary_keys from_primary_key
         end
+
         columns(from).each do |column|
           column_name = options[:rename] ?
             (options[:rename][column.name] ||
@@ -432,7 +461,7 @@ module ArJdbc
         name = index.name
         # indexes sqlite creates for internal use start with `sqlite_` and
         # don't need to be copied
-        next if name.starts_with?("sqlite_")
+        next if name.start_with?("sqlite_")
         if to == "a#{from}"
           name = "t#{name}"
         elsif from == "a#{to}"
@@ -449,10 +478,10 @@ module ArJdbc
 
         unless columns.empty?
           # index name can't be the same
-          opts = { name: name.gsub(/(^|_)(#{from})_/, "\\1#{to}_"), internal: true }
-          opts[:unique] = true if index.unique
-          opts[:where] = index.where if index.where
-          add_index(to, columns, opts)
+          options = { name: name.gsub(/(^|_)(#{from})_/, "\\1#{to}_"), internal: true }
+          options[:unique] = true if index.unique
+          options[:where] = index.where if index.where
+          add_index(to, columns, **options)
         end
       end
     end
@@ -517,7 +546,7 @@ module ArJdbc
           collation_hash[$1] = $2 if COLLATE_REGEX =~ column_string
         end
 
-        basic_structure.map! do |column|
+        basic_structure.map do |column|
           column_name = column["name"]
 
           if collation_hash.has_key? column_name
@@ -539,18 +568,6 @@ module ArJdbc
       execute("PRAGMA foreign_keys = ON", "SCHEMA")
     end
 
-    # DIFFERENCE: FQN
-    class SQLite3Integer < ::ActiveRecord::Type::Integer # :nodoc:
-      private
-      def _limit
-        # INTEGER storage class can be stored 8 bytes value.
-        # See https://www.sqlite.org/datatype3.html#storage_classes_and_datatypes
-        limit || 8
-      end
-    end
-
-    # DIFFERENCE: FQN
-    ::ActiveRecord::Type.register(:integer, SQLite3Integer, adapter: :sqlite3)
   end
   # DIFFERENCE: A registration here is moved down to concrete class so we are not registering part of an adapter.
 end
@@ -671,7 +688,9 @@ module ActiveRecord::ConnectionAdapters
     end
 
     def begin_isolated_db_transaction(isolation)
-      raise ActiveRecord::TransactionIsolationError, 'adapter does not support setting transaction isolation'
+      raise ActiveRecord::TransactionIsolationError, "SQLite3 only supports the `read_uncommitted` transaction isolation level" if isolation != :read_uncommitted
+      raise StandardError, "You need to enable the shared-cache mode in SQLite mode before attempting to change the transaction isolation level" unless shared_cache?
+      super
     end
 
     # SQLite driver doesn't support all types of insert statements with executeUpdate so
@@ -707,5 +726,23 @@ module ActiveRecord::ConnectionAdapters
         total_sql
       end
     end
+
+    def initialize_type_map(m = type_map)
+      super
+      register_class_with_limit m, %r(int)i, SQLite3Integer
+    end
+
+    # DIFFERENCE: FQN
+    class SQLite3Integer < ::ActiveRecord::Type::Integer # :nodoc:
+      private
+      def _limit
+        # INTEGER storage class can be stored 8 bytes value.
+        # See https://www.sqlite.org/datatype3.html#storage_classes_and_datatypes
+        limit || 8
+      end
+    end
+
+    # DIFFERENCE: FQN
+    ::ActiveRecord::Type.register(:integer, SQLite3Integer, adapter: :sqlite3)
   end
 end

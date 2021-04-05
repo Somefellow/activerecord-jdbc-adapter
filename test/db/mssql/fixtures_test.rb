@@ -132,6 +132,7 @@ class MSSQLFixturesTest < Test::Unit::TestCase
     ]
 
     conn = FixtureEntry.connection
+
     assert_nothing_raised do
       conn.insert_fixtures_set({ fixture_entries: fixtures }, ['fixture_entries'])
     end

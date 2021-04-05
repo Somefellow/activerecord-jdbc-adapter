@@ -3,7 +3,7 @@
 module ActiveRecord
   module ConnectionAdapters
     module MSSQL
-      class SchemaCreation < AbstractAdapter::SchemaCreation
+      class SchemaCreation < SchemaCreation
         private
 
         def visit_TableDefinition(o)
@@ -33,7 +33,7 @@ module ActiveRecord
             end
 
             create_sql << "(#{statements.join(', ')})" if statements.present?
-            add_table_options!(create_sql, table_options(o))
+            add_table_options!(create_sql, o)
             create_sql
           end
         end

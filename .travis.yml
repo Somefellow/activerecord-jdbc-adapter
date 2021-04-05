@@ -15,7 +15,7 @@ install:
 
 language: ruby
 rvm:
-  - jruby-9.2.7.0
+  - jruby-9.2.14.0
 jdk:
   - openjdk8
 
@@ -37,8 +37,8 @@ before_script:
     mysql -e "grant all privileges on activerecord_unittest.* to rails@localhost;" && \
     mysql -e "grant all privileges on activerecord_unittest2.* to rails@localhost;" && \
     mysql -e "grant all privileges on inexistent_activerecord_unittest.* to rails@localhost;" && \
-    mysql -e "CREATE DATABASE activerecord_unittest DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;" && \
-    mysql -e "CREATE DATABASE activerecord_unittest2 DEFAULT CHARACTER SET utf8 COLLATE utf8_general_ci;" \
+    mysql -e "CREATE DATABASE activerecord_unittest DEFAULT CHARACTER SET utf8mb4;" && \
+    mysql -e "CREATE DATABASE activerecord_unittest2 DEFAULT CHARACTER SET utf8mb4;" \
     || true
   - |
     [ "$DB" == "postgresql" ] && [ "$TEST_PREFIX" == "rails:" ] && \
@@ -48,7 +48,7 @@ before_script:
 
 env:
   global:
-    - AR_VERSION="6-0-stable"
+    - AR_VERSION="master"
 matrix:
   allow_failures:
     - rvm: jruby-head
@@ -111,18 +111,18 @@ matrix:
       env: DB=mariadb PREPARED_STATEMENTS=true
 
     # Rails test-suite :
-    - env: DB=mysql2     TEST_PREFIX="rails:" AR_VERSION="6-0-stable" # PS off by default
-    - env: DB=mysql2     TEST_PREFIX="rails:" AR_VERSION="6-0-stable" PREPARED_STATEMENTS=true
-    - env: DB=mysql2     TEST_PREFIX="rails:" AR_VERSION="6-0-stable" DRIVER=MariaDB
+    - env: DB=mysql2     TEST_PREFIX="rails:" AR_VERSION="6-1-stable" # PS off by default
+    - env: DB=mysql2     TEST_PREFIX="rails:" AR_VERSION="6-1-stable" PREPARED_STATEMENTS=true
+    - env: DB=mysql2     TEST_PREFIX="rails:" AR_VERSION="6-1-stable" DRIVER=MariaDB
 
     - addons:
         postgresql: "10"
-      env: DB=postgresql TEST_PREFIX="rails:" AR_VERSION="6-0-stable" # PS on by default
+      env: DB=postgresql TEST_PREFIX="rails:" AR_VERSION="6-1-stable" # PS on by default
     - addons:
         postgresql: "10"
-      env: DB=postgresql TEST_PREFIX="rails:" AR_VERSION="6-0-stable" PREPARED_STATEMENTS=false
+      env: DB=postgresql TEST_PREFIX="rails:" AR_VERSION="6-1-stable" PREPARED_STATEMENTS=false
     - addons:
         postgresql: "9.4"
-      env: DB=postgresql TEST_PREFIX="rails:" AR_VERSION="6-0-stable" # PS on by default
+      env: DB=postgresql TEST_PREFIX="rails:" AR_VERSION="6-1-stable" # PS on by default
 
-    - env: DB=sqlite3    TEST_PREFIX="rails:" AR_VERSION="6-0-stable"
+    - env: DB=sqlite3    TEST_PREFIX="rails:" AR_VERSION="6-1-stable"

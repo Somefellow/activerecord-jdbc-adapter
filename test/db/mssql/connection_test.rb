@@ -24,10 +24,12 @@ class MSSQLConnectionTest < Test::Unit::TestCase
 
     @connection.disconnect!
 
-    error = assert_raise(ActiveRecord::StatementInvalid) do
+    error = assert_raises(ActiveRecord::ConnectionNotEstablished) do
       @connection.execute('SELECT 1')
     end
+
     assert_kind_of ActiveRecord::ConnectionNotEstablished, error.cause
+    assert_not_nil error.cause
   end
 
   def test_reconnect

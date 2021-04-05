@@ -34,14 +34,14 @@ Gem::Specification.new do |gem|
     #gem.requirements << "jar org.postgresql:postgresql, 42.1.4.jre6, :scope => :compile"
 
     # compilation .jar dependencies for extension (at least until `mvn') :
-    gem.add_development_dependency 'jdbc-mysql', '~> 5.1.44'
+    gem.add_development_dependency 'jdbc-mysql', '~> 8.0.0'
     gem.add_development_dependency 'jdbc-postgres', '~> 42.1'
   end
 
   gem.executables = gem.files.grep(%r{^bin/}).map { |f| File.basename(f) }
   gem.test_files = gem.files.grep(%r{^test/})
 
-  gem.add_dependency 'activerecord', '~> 6.0.0'
+  gem.add_dependency 'activerecord', '~> 6.1.0'
 
   #gem.add_development_dependency 'test-unit', '2.5.4'
   #gem.add_development_dependency 'test-unit-context', '>= 0.3.0'

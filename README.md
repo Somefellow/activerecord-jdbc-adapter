@@ -135,7 +135,8 @@ Versions are targeted at certain versions of Rails and live on their own branche
 | 50.x        | 5.0.x         | 50-stable | 9.1.x     | 7        |
 | 51.x        | 5.1.x         | 51-stable | 9.1.x     | 7        |
 | 52.x        | 5.2.x         | 52-stable | 9.1.x     | 7        |
-| 60.x        | 6.0.x         | master    | 9.2.7     | 8        |
+| 60.x        | 6.0.x         | 60-stable | 9.2.7     | 8        |
+| 61.x        | 6.1.x         | master    | 9.2.7     | 8        |
 
 Note that JRuby 9.1.x is end-of-life. We recommend Java 8 at a minimum for all
 versions.
@@ -228,8 +229,8 @@ Proceed as with Rails; specify `ActiveRecord` in your Bundle along with the
 chosen JDBC adapter(s), this time sample *Gemfile* for MySQL:
 
 ```ruby
-gem 'activerecord', '~> 5.0.6'
-gem 'activerecord-jdbcmysql-adapter', :platform => :jruby
+gem 'activerecord', '~> 6.0.3'
+gem 'activerecord-jdbcmysql-adapter', '~> 60.2', :platform => :jruby
 ```
 
 When you `require 'bundler/setup'` everything will be set up for you as expected.
@@ -238,13 +239,13 @@ When you `require 'bundler/setup'` everything will be set up for you as expected
 
 Install the needed gems with JRuby, for example:
 
-    gem install activerecord -v "~> 5.0.6"
-    gem install activerecord-jdbc-adapter --ignore-dependencies
+    gem install activerecord -v "~> 6.0.3"
+    gem install activerecord-jdbc-adapter -v "~> 60.2" --ignore-dependencies
 
 If you wish to use the adapter for a specific database, you can install it
 directly and the (jdbc-) driver gem (dependency) will be installed as well:
 
-    jruby -S gem install activerecord-jdbcmysql-adapter
+    jruby -S gem install activerecord-jdbcmysql-adapter -v "~> 60.2"
 
 Your program should include:
 
@@ -284,7 +285,7 @@ ask on the #JRuby IRC channel on http://freenode.net/ (try [web-chat][6]).
 This project was originally written by [Nick Sieger](http://github.com/nicksieger)
 and [Ola Bini](http://github.com/olabini) with lots of help from the JRuby community.
 Polished 3.x compatibility and 4.x support (for AR-JDBC >= 1.3.0) was managed by
-[Karol Bucek](http://github.com/kares) among others. Support for Rails 6 was
+[Karol Bucek](http://github.com/kares) among others. Support for Rails 6.0 and 6.1 was
 contributed by [shellyBits GmbH](https://shellybits.ch/)
 
 ## License

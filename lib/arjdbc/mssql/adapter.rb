@@ -224,7 +224,7 @@ module ActiveRecord
 
       # FIXME: This needs to be fixed when we implement the collation per
       # column basis. At the moment we only use the global database collation
-      def default_uniqueness_comparison(attribute, value, klass) # :nodoc:
+      def default_uniqueness_comparison(attribute, value) # :nodoc:
         column = column_for_attribute(attribute)
 
         if [:string, :text].include?(column.type) && collation && !collation.match(/_CS/) && !value.nil?
@@ -313,6 +313,8 @@ module ActiveRecord
 
       def translate_exception(exception, message:, sql:, binds:)
         case message
+        when /no connection available/i
+          ConnectionNotEstablished.new(exception)
         when /(cannot insert duplicate key .* with unique index) | (violation of unique key constraint)/i
           RecordNotUnique.new(message, sql: sql, binds: binds)
         when /Lock request time out period exceeded/i

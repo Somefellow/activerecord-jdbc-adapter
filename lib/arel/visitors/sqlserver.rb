@@ -51,6 +51,11 @@ module Arel
         end
       end
 
+      def visit_Arel_Nodes_Grouping(o, collector)
+        remove_invalid_ordering_from_select_statement(o.expr)
+        super
+      end
+
       def visit_Arel_Nodes_SelectStatement o, collector
         @select_statement = o
         distinct_One_As_One_Is_So_Not_Fetch o
@@ -183,9 +188,11 @@ module Arel
 
       def make_Fetch_Possible_And_Deterministic o
         return if o.limit.nil? && o.offset.nil?
+
         t = table_From_Statement o
         pk = primary_Key_From_Table t
         return unless pk
+
         if o.orders.empty?
           # Prefer deterministic vs a simple `(SELECT NULL)` expr.
           o.orders = [pk.asc]
@@ -221,6 +228,7 @@ module Arel
 
       def primary_Key_From_Table t
         return unless t
+
         # column_name = schema_cache.primary_keys(t.name) || column_cache(t.name).first.try(:second).try(:name)
         # NOTE: for table name aliases columns_hash('table_alias')  requires to return an empty hash.
         column_name = @connection.schema_cache.primary_keys(t.name) ||
@@ -234,6 +242,14 @@ module Arel
         ).quoted
       end
 
+      # Need to remove ordering from subqueries unless TOP/OFFSET also used. Otherwise, SQLServer
+      # returns error "The ORDER BY clause is invalid in views, inline functions, derived tables,
+      # subqueries, and common table expressions, unless TOP, OFFSET or FOR XML is also specified."
+      def remove_invalid_ordering_from_select_statement(node)
+        return unless Arel::Nodes::SelectStatement === node
+
+        node.orders = [] unless node.offset || node.limit
+      end
     end
   end
 end

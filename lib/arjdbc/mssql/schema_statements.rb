@@ -109,7 +109,17 @@ module ActiveRecord
         end
 
         def create_database(name, options = {})
-          execute "CREATE DATABASE #{quote_database_name(name)}"
+          edition_options = create_db_edition_options(options)
+
+          if options[:collation] && edition_options.present?
+            execute "CREATE DATABASE #{quote_database_name(name)} COLLATE #{options[:collation]} (#{edition_options.join(', ')})"
+          elsif options[:collation]
+            execute "CREATE DATABASE #{quote_database_name(name)} COLLATE #{options[:collation]}"
+          elsif edition_options.present?
+            execute "CREATE DATABASE #{quote_database_name(name)} (#{edition_options.join(', ')})"
+          else
+            execute "CREATE DATABASE #{quote_database_name(name)}"
+          end
         end
 
         def recreate_database(name, options = {})
@@ -119,6 +129,9 @@ module ActiveRecord
 
         def remove_column(table_name, column_name, type = nil, options = {})
           raise ArgumentError.new('You must specify at least one column name.  Example: remove_column(:people, :first_name)') if column_name.is_a? Array
+
+          return if options[:if_exists] == true && !column_exists?(table_name, column_name)
+
           remove_check_constraints(table_name, column_name)
           remove_default_constraint(table_name, column_name)
           remove_indexes(table_name, column_name)
@@ -338,6 +351,21 @@ module ActiveRecord
 
         def new_column_from_field(table_name, field)
           field
+        end
+
+        def create_db_edition_options(options = {})
+          edition_config = options.select { |k, _v| k.match?('azure') }
+
+          edition_config.each_with_object([]) do |(key, value), output|
+            output << case key
+                      when :azure_maxsize
+                        "MAXSIZE = #{value}"
+                      when :azure_edition
+                        "EDITION = #{value}"
+                      when :service_objective
+                        "SERVICE_OBJECTIVE = #{value}"
+                      end
+          end.compact
         end
 
         def data_source_sql(name = nil, type: nil)

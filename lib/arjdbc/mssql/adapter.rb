@@ -224,7 +224,7 @@ module ActiveRecord
 
       # FIXME: This needs to be fixed when we implement the collation per
       # column basis. At the moment we only use the global database collation
-      def default_uniqueness_comparison(attribute, value, klass) # :nodoc:
+      def default_uniqueness_comparison(attribute, value) # :nodoc:
         column = column_for_attribute(attribute)
 
         if [:string, :text].include?(column.type) && collation && !collation.match(/_CS/) && !value.nil?

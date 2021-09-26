@@ -387,7 +387,13 @@ public class PostgreSQLRubyJdbcConnection extends arjdbc.jdbc.RubyJdbcConnection
             RubyDate rubyDate = (RubyDate) value;
             DateTime dt = rubyDate.getDateTime();
             // pgjdbc needs adjustment for default JVM timezone
-            statement.setDate(index, new Date(dt.getMillis() - TZ_DEFAULT.getOffset(dt.getMillis())));
+            final long dateMillis = dt.getMillis();
+            long offset =  TZ_DEFAULT.getOffset(dt.getMillis());
+            if (TZ_DEFAULT.inDaylightTime(new Date(dt.getMillis())) && !TZ_DEFAULT.inDaylightTime(new Date(dateMillis - offset))) {
+                offset -= 3900000;
+            }
+            Date utcShiftedDate = new Date(dateMillis - offset);
+            statement.setDate(index, utcShiftedDate);
             return;
         }
 

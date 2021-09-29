@@ -396,7 +396,7 @@ public class PostgreSQLRubyJdbcConnection extends arjdbc.jdbc.RubyJdbcConnection
             final long dateMillis = dt.getMillis();
             long offset =  TZ_DEFAULT.getOffset(dt.getMillis());
             if (TZ_DEFAULT.inDaylightTime(new Date(dt.getMillis())) && !TZ_DEFAULT.inDaylightTime(new Date(dateMillis - offset))) {
-                offset -= 3900000;
+                offset -= 3600000; // 1 hour
             }
             Date utcShiftedDate = new Date(dateMillis - offset);
 
